@@ -41,7 +41,8 @@ bridge `/health`.
 
 ## File: `pratham/tests/test_postgres_runtime_store.py`
 
-**Sprint change:** Added cross-instance PostgreSQL persistence coverage.
+**Sprint change:** Added cross-instance PostgreSQL persistence coverage and
+resource-scoped lock regression coverage.
 
 **Purpose:** Proves that sessions, context, immutable artifacts, lineage, and
 runtime leases survive complete store recreation.
@@ -50,7 +51,8 @@ runtime leases survive complete store recreation.
 persists across a cold start.
 
 **Key implementation areas:** Isolated schema, first-store writes, second-store
-read-back, advisory-lock lease path, and guaranteed schema cleanup.
+read-back, distinct advisory keys for distinct resources, unlocked immutable
+artifact transactions, advisory-lock lease path, and guaranteed schema cleanup.
 
 **Review focus:** The second store receives no in-memory state from the first;
 all assertions are backed by PostgreSQL reads.

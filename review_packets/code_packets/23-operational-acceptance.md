@@ -34,13 +34,14 @@ selection without product branches in the validator.
 invariants while allowing future products to add data instead of code.
 
 **Key implementation areas:** NVDA prediction case; drip-irrigation learning
-case; expected product, capability, intent, and response paths.
+case; SETU low-stock inventory case; expected product, capability, intent, and
+response paths.
 
 **Review focus:** Native product payloads, no credentials, no mock responses,
 and agreement with production manifests.
 
 **Related tests:**
-`test_operational_cases_cover_both_real_product_owners`.
+`test_operational_cases_cover_real_product_owners`.
 
 ## File: `pratham/tests/test_operational_validators.py`
 

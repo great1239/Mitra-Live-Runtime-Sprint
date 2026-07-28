@@ -145,6 +145,9 @@ validation uses Docker or Render with `/data`.
   authenticated, read-only inventory, order, and operations contracts.
 - Added generic nested health assertions so a product cannot report healthy
   while its declared database or Mitra integration dependency is unavailable.
+- Replaced the single global PostgreSQL write lock with resource-scoped
+  transaction locks after hosted validation proved that unrelated supervisor,
+  dispatch reconstruction, and ecosystem writes could block each other.
 - Added an output-driven SETU low-stock operational acceptance case and the
   bounded SETU code packet.
 - Added the strict Raj-to-Central-Depository runtime path.

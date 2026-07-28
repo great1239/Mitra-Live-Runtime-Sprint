@@ -16,6 +16,34 @@ from mitra_session.runtime import SessionRuntime
 POSTGRES_URL = os.environ.get("MITRA_TEST_POSTGRES_URL")
 
 
+def test_postgres_write_transactions_use_scoped_advisory_locks() -> None:
+    class RecordingConnection:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, tuple[object, ...]]] = []
+
+        def execute(
+            self,
+            statement: str,
+            parameters: tuple[object, ...] = (),
+        ) -> None:
+            self.calls.append((statement, parameters))
+
+    store = object.__new__(RuntimeStore)
+    store.database_url = "postgresql://runtime.example/mitra"
+    first = RecordingConnection()
+    second = RecordingConnection()
+    unlocked = RecordingConnection()
+
+    store._begin_write_transaction(first, lock_scope="lineage:session:a")
+    store._begin_write_transaction(second, lock_scope="lineage:session:b")
+    store._begin_write_transaction(unlocked)
+
+    assert first.calls[0] == ("BEGIN IMMEDIATE", ())
+    assert first.calls[1][0] == "SELECT pg_advisory_xact_lock(?)"
+    assert first.calls[1][1] != second.calls[1][1]
+    assert unlocked.calls == [("BEGIN IMMEDIATE", ())]
+
+
 @pytest.mark.skipif(
     not POSTGRES_URL,
     reason="MITRA_TEST_POSTGRES_URL is not configured",

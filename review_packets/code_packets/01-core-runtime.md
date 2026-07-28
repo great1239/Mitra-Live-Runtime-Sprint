@@ -39,25 +39,31 @@ the absence of product-specific branching.
 
 **Sprint change:** Modified
 
-**Purpose:** Provides durable SQLite state for runtime instances, leases,
+**Purpose:** Provides durable SQLite or PostgreSQL state for runtime instances, leases,
 dispatch phases, artifacts, lineage, messages, tasks, integration deliveries,
 dependency observations, continuity snapshots, and operational recovery.
 
 **Why modified:** Added the persistence primitives required for immutable
 reconstruction, content-addressed artifacts, hash-chain lineage, companion
-continuity, and stale-instance reconciliation.
+continuity, and stale-instance reconciliation. PostgreSQL write transactions
+now use resource-scoped advisory locks instead of one process-wide lock, after
+hosted SETU validation exposed cross-request reconstruction timeouts.
 
 **Key implementation areas:** Schema migrations; artifact and lineage tables;
 atomic lease/outbox claims; fencing tokens; bounded observations; runtime
-heartbeat state; dispatch phase persistence; companion message and task records.
+heartbeat state; dispatch phase persistence; companion message and task records;
+resource-scoped PostgreSQL transaction locks.
 
 **Review focus:** Migration safety, transaction boundaries, deterministic
 ordering, JSON serialization, lineage sequence integrity, stale-claim fencing,
 and concurrent instance access.
+Review the absence of a global PostgreSQL transaction lock and confirm that
+lease, context, stage, lineage, and outbox resources retain scoped exclusion.
 
 **Related tests:** `pratham/tests/test_replay_convergence_and_graph.py`,
 `pratham/tests/test_production_hardening.py`,
 `pratham/tests/test_companion_interaction.py`.
+`pratham/tests/test_postgres_runtime_store.py`.
 
 ## File: `pratham/companion-runtime/mitra_companion/api.py`
 

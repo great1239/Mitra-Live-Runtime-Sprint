@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import threading
@@ -11,9 +12,6 @@ from typing import Any, Iterator
 from .constants import AttachmentState, RuntimeState, SessionState
 from .errors import ContextRevisionConflict, ResourceConflictError
 from .utils import sha256_json, utc_now
-
-
-_POSTGRES_TRANSACTION_LOCK = 4_834_857_201
 
 
 class _PostgresConnection:
@@ -41,10 +39,7 @@ class _PostgresConnection:
     ) -> Any:
         if statement.strip().upper() == "BEGIN IMMEDIATE":
             self._connection.execute("BEGIN")
-            return self._connection.execute(
-                "SELECT pg_advisory_xact_lock(%s)",
-                (_POSTGRES_TRANSACTION_LOCK,),
-            )
+            return None
         return self._connection.execute(
             statement.replace("?", "%s"),
             parameters,
@@ -115,6 +110,28 @@ class RuntimeStore:
             yield connection
         finally:
             connection.close()
+
+    @staticmethod
+    def _advisory_key(scope: str) -> int:
+        raw = int.from_bytes(
+            hashlib.sha256(scope.encode("utf-8")).digest()[:8],
+            byteorder="big",
+            signed=False,
+        )
+        return raw if raw < 2**63 else raw - 2**64
+
+    def _begin_write_transaction(
+        self,
+        connection: Any,
+        *,
+        lock_scope: str | None = None,
+    ) -> None:
+        connection.execute("BEGIN IMMEDIATE")
+        if self.database_url and lock_scope:
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(?)",
+                (self._advisory_key(lock_scope),),
+            )
 
     def _initialize(self) -> None:
         with self._schema_lock, self.connection() as connection:
@@ -622,7 +639,10 @@ class RuntimeStore:
             now_dt + timedelta(seconds=max(0.1, lease_seconds))
         ).isoformat()
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"runtime-lease:{lease_name}",
+            )
             try:
                 row = connection.execute(
                     "SELECT * FROM runtime_leases WHERE lease_name = ?",
@@ -985,7 +1005,10 @@ class RuntimeStore:
                 updated_at=now,
             )
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"context:{session_id}:{scope}:{scope_key}",
+            )
             row = connection.execute(
                 """
                 SELECT revision, data_json FROM contexts
@@ -1051,7 +1074,10 @@ class RuntimeStore:
         updated_at: str,
     ) -> dict[str, Any]:
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"workspace-context:{actor_id}:{workspace_id}",
+            )
             row = connection.execute(
                 """
                 SELECT revision, data_json FROM workspace_contexts
@@ -1402,7 +1428,13 @@ class RuntimeStore:
         request_hash = sha256_json(request)
         now = utc_now()
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=(
+                    f"ecosystem-execution:"
+                    f"{idempotency_key or execution_id}"
+                ),
+            )
             try:
                 if idempotency_key:
                     existing = connection.execute(
@@ -1642,7 +1674,10 @@ class RuntimeStore:
         request_hash = sha256_json(request)
         now = utc_now()
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"ecosystem-stage:{execution_id}:{stage_name}",
+            )
             try:
                 existing = connection.execute(
                     """
@@ -1721,7 +1756,10 @@ class RuntimeStore:
         now = utc_now()
         encoded = json.dumps(response, sort_keys=True, ensure_ascii=False)
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"ecosystem-stage:{execution_id}:{stage_name}",
+            )
             try:
                 row = connection.execute(
                     """
@@ -2245,7 +2283,7 @@ class RuntimeStore:
         ]
         stored: list[dict[str, Any]] = []
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(connection)
             try:
                 for item in prepared:
                     row = connection.execute(
@@ -2353,7 +2391,10 @@ class RuntimeStore:
             ensure_ascii=False,
         )
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"lineage:{subject_type}:{subject_id}",
+            )
             try:
                 row = connection.execute(
                     """
@@ -3146,7 +3187,10 @@ class RuntimeStore:
 
         claimed_ids: list[str] = []
         with self.connection() as connection:
-            connection.execute("BEGIN IMMEDIATE")
+            self._begin_write_transaction(
+                connection,
+                lock_scope=f"integration-outbox:{integration_name}",
+            )
             try:
                 rows = connection.execute(query, tuple(params)).fetchall()
                 for row in rows:
