@@ -1,5 +1,26 @@
 # Review Packet - TANTRA Ecosystem Convergence
 
+## Canonical Product Convergence
+
+User-facing companion auto-dispatch now enters the same strict ecosystem
+coordinator as `/api/workflow/run` and `/api/v1/ecosystem/execute`. It no longer
+calls a product directly or substitutes a second product after execution
+begins. The selected manifest contract is projected into Raj's generic task
+envelope, then checkpointed through product execution, conditional KESHAV,
+Ashmit, Bucket, Karma, PRANA, InsightFlow, replay, and Central Depository.
+
+Product specification and compliance:
+
+- `docs/MITRA_CANONICAL_SPEC.md`
+- `docs/BCAB_ALIGNMENT_REPORT.md`
+- `docs/BCAES_ALIGNMENT_REPORT.md`
+- `docs/PRODUCTION_READINESS_REPORT.md`
+- `docs/ECOSYSTEM_AUDIT_REPORT.md`
+- `docs/DUPLICATE_PATH_REMOVAL_REPORT.md`
+
+External gaps are tracked in `DEP/blockers.md`; no unavailable owner runtime is
+represented by a mock deployment or screenshot.
+
 Snapshot date: 2026-07-28
 
 ## Entry Point

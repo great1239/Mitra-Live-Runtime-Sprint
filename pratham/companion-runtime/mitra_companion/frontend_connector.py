@@ -220,6 +220,8 @@ def _to_companion_request(
 
 def _chat_response(result: dict[str, Any]) -> dict[str, Any]:
     dispatch = result.get("dispatch") or {}
+    ecosystem = result.get("ecosystem") or {}
+    execution = ecosystem.get("execution") or {}
     session = result["session"]
     return {
         "message": result["message"]["content"],
@@ -235,8 +237,24 @@ def _chat_response(result: dict[str, Any]) -> dict[str, Any]:
             "selection": result.get("selection"),
             "capability_plan": result.get("capability_plan"),
             "dispatch_id": dispatch.get("dispatch_id"),
+            "execution_id": execution.get("execution_id"),
+            "trace_id": execution.get("trace_id"),
+            "current_stage": execution.get("current_stage"),
             "task_id": (result.get("task") or {}).get("task_id"),
-            "trace_endpoints": _trace_endpoints(dispatch),
+            "trace_endpoints": (
+                {
+                    "execution": (
+                        f"/api/v1/ecosystem/executions/"
+                        f"{execution['execution_id']}"
+                    ),
+                    "replay": (
+                        f"/api/v1/ecosystem/executions/"
+                        f"{execution['execution_id']}/replay"
+                    ),
+                }
+                if execution.get("execution_id")
+                else _trace_endpoints(dispatch)
+            ),
             "recorded_at": utc_now(),
         },
     }
@@ -246,6 +264,8 @@ def _capability_result(result: dict[str, Any]) -> dict[str, Any] | None:
     selection = result.get("selection") or {}
     candidate = selection.get("candidate") or {}
     dispatch = result.get("dispatch") or {}
+    ecosystem = result.get("ecosystem") or {}
+    execution = ecosystem.get("execution") or {}
     if not candidate and not dispatch:
         return None
     status = result.get("status")
@@ -267,6 +287,7 @@ def _capability_result(result: dict[str, Any]) -> dict[str, Any] | None:
             or dispatch.get("product_id"),
             "payload": result.get("payload"),
             "dispatch": dispatch or None,
+            "ecosystem_execution": execution or None,
             "route": result.get("route"),
             "task": result.get("task"),
             "runtime_status": status,

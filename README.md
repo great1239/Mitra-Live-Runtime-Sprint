@@ -16,7 +16,7 @@ packages for those external authorities to consume.
 The final strict convergence path is:
 
 ```text
-User -> Mitra capability selection -> Raj -> product runtime
+User -> MITRA capability selection -> Raj -> product runtime
      -> KESHAV diagnosis only when the product returns a typed error
      -> Ashmit -> Bucket -> Karma -> PRANA -> InsightFlow
      -> deterministic reconstruction -> Central Depository
@@ -25,6 +25,19 @@ User -> Mitra capability selection -> Raj -> product runtime
 Run it through `POST /api/v1/ecosystem/execute`. This endpoint calls only
 configured owner contracts and never substitutes an embedded adapter. See
 `docs/TANTRA_ECOSYSTEM_CONVERGENCE.md` for configuration and recovery.
+
+The canonical product definition, compliance posture, and production
+acceptance status are maintained in:
+
+- `docs/MITRA_CANONICAL_SPEC.md`
+- `docs/BCAB_ALIGNMENT_REPORT.md`
+- `docs/BCAES_ALIGNMENT_REPORT.md`
+- `docs/PRODUCTION_READINESS_REPORT.md`
+- `docs/ECOSYSTEM_AUDIT_REPORT.md`
+
+Companion auto-dispatch and the frontend workflow connector use the same strict
+ecosystem coordinator. Direct product dispatch is an internal transport
+primitive, not an alternate user execution path.
 
 The complete local topology was rebuilt and validated on 2026-07-20. The
 canonical three-case run completed all ten persisted stages per execution,

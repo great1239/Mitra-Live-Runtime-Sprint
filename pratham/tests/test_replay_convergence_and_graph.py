@@ -326,15 +326,16 @@ async def test_companion_profile_tracks_identity_preferences_and_trust(runtime):
                     "preferred_detail": "evidence-first",
                 }
             },
+            auto_dispatch=False,
         )
     )
 
-    assert result["status"] == "COMPLETED"
+    assert result["status"] == "SELECTED"
     profile = result["memory"]["companion_profile"]
     assert profile["identity_continuity"]["actor_id"] == "companion-user"
     assert profile["identity_continuity"]["client_history"] == ["mobile"]
     assert profile["preferences"]["preferred_tone"] == "concise"
-    assert profile["trust"]["successful_dispatches"] == 1
+    assert profile["trust"]["successful_dispatches"] == 0
     assert profile["relationship_model"]["mode"] == (
         "bounded-runtime-companion"
     )

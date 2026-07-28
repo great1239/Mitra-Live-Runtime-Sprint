@@ -93,24 +93,22 @@ def test_frontend_connector_routes_into_mitra_runtime(settings_factory):
         )
         assert chat.status_code == 200, chat.text
         chat_body = chat.json()
-        assert chat_body["status"] == "COMPLETED"
+        assert chat_body["status"] == "FAILED"
         assert chat_body["intent"] == "predict.market"
         assert chat_body["capability_result"]["capability"] == (
             "market-prediction"
         )
-        assert chat_body["capability_result"]["status"] == "success"
+        assert chat_body["capability_result"]["status"] == "error"
         assert chat_body["session_id"].startswith("ses_")
-        assert chat_body["mitra_runtime"]["dispatch_id"].startswith("dsp_")
-        assert chat_body["mitra_runtime"]["trace_endpoints"][
-            "reconstruction"
-        ].endswith("/reconstruction")
+        assert chat_body["mitra_runtime"]["dispatch_id"] is None
+        assert chat_body["mitra_runtime"]["execution_id"] is None
 
         memory = client.get("/api/companion/memory/frontend-user")
         assert memory.status_code == 200, memory.text
         memory_body = memory.json()
         assert memory_body["session_id"] == chat_body["session_id"]
-        assert memory_body["facts"]["last_status"] == "COMPLETED"
-        assert memory_body["messages"][-1]["status"] == "COMPLETED"
+        assert memory_body["facts"]["last_status"] == "FAILED"
+        assert memory_body["messages"][-1]["status"] == "FAILED"
 
 
 def test_frontend_workflow_uses_canonical_ecosystem_and_fails_closed(

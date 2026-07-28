@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from integration_services.raj import _effective_base_url
 from mitra_companion.api import create_app
 from mitra_companion.contracts import (
+    CompanionMessageRequest,
     EcosystemExecutionRequest,
     ProductAttachmentManifest,
 )
@@ -401,6 +402,51 @@ def _configured_runtime(
     runtime.start()
     runtime.attach(_manifest())
     return runtime
+
+
+@pytest.mark.asyncio
+async def test_companion_uses_the_canonical_ecosystem_pipeline(
+    settings_factory,
+):
+    environment = ContractEnvironment()
+    runtime = _configured_runtime(settings_factory, environment)
+    try:
+        result = await runtime.companion_message(
+            CompanionMessageRequest(
+                actor_id="canonical-user",
+                workspace_id="canonical-workspace",
+                product_id="trade-bot-main",
+                capability_id="market-prediction",
+                message="Generate a market prediction for TCS.NS",
+                payload={"symbols": ["TCS.NS"], "horizon": "short"},
+            )
+        )
+
+        assert result["status"] == "COMPLETED"
+        assert result["dispatch"] is None
+        assert result["ecosystem"]["execution"]["status"] == "COMPLETED"
+        assert result["ecosystem"]["execution"]["trace_id"]
+        replay = runtime.ecosystem_replay(
+            result["ecosystem"]["execution"]["execution_id"]
+        )["package"]
+        assert EcosystemReplayLedger.validate(replay)["status"] == "verified"
+        called_hosts = [call["host"] for call in environment.calls]
+        assert called_hosts.index("raj.test") < called_hosts.index("bucket.test")
+        karma_append = next(
+            index
+            for index, call in enumerate(environment.calls)
+            if call["host"] == "karma.test" and call["method"] == "POST"
+        )
+        prana_forward = next(
+            index
+            for index, call in enumerate(environment.calls)
+            if call["host"] == "prana.test" and call["method"] == "POST"
+        )
+        assert karma_append < prana_forward
+        assert "insight.test" in called_hosts
+        assert "central.test" in called_hosts
+    finally:
+        runtime.stop()
 
 
 @pytest.mark.asyncio

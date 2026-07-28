@@ -150,10 +150,11 @@ async def test_companion_message_selects_executes_and_persists_memory(
                 client_type="standalone",
                 workspace_id="market-workspace",
                 message="Show my market prediction for RELIANCE.NS",
+                auto_dispatch=False,
             )
         )
 
-        assert result["status"] == "COMPLETED"
+        assert result["status"] == "SELECTED"
         assert result["analysis"]["status"] == "matched"
         assert result["analysis"]["recommended_candidate"]["intent_id"] == (
             "tradebot.predict"
@@ -165,34 +166,29 @@ async def test_companion_message_selects_executes_and_persists_memory(
             "required_inputs"
         ] == ["symbols"]
         assert result["payload"] == {"symbols": ["RELIANCE.NS"]}
-        assert result["dispatch"]["status"] == "COMPLETED"
+        assert result["dispatch"] is None
         assert result["execution_explanation"]["selected_candidate"] == {
             "product_id": "trade-bot-main",
             "capability_id": "market-prediction",
             "intent_id": "tradebot.predict",
         }
         assert result["execution_explanation"]["fallback"]["used"] is False
-        assert received == [
-            {
-                "path": "/tools/predict",
-                "payload": {"symbols": ["RELIANCE.NS"]},
-            }
-        ]
+        assert received == []
         memory = runtime.companion_memory(result["session"]["session_id"])
         assert memory["summary"]["slots"]["symbols"] == ["RELIANCE.NS"]
         assert len(memory["messages"]) == 2
-        assert memory["tasks"][0]["status"] == "COMPLETED"
+        assert memory["tasks"] == []
         context = runtime.context.load(result["session"]["session_id"])
         assert (
             context["merged"]["companion_memory"]["last_status"]
-            == "COMPLETED"
+            == "SELECTED"
         )
         assert context["merged"]["companion_memory"]["last_analysis"][
             "recommended_candidate"
         ]["intent_id"] == "tradebot.predict"
         metrics = runtime.metrics_snapshot()["counters"]
         assert metrics["companion_messages_total"] == 1
-        assert metrics["companion_messages_completed_total"] == 1
+        assert metrics.get("companion_messages_completed_total", 0) == 0
     finally:
         runtime.stop()
 
@@ -237,15 +233,16 @@ async def test_companion_understands_sparse_attached_bhiv_capability(
             client_type="standalone",
             workspace_id="new-product-space",
             message="Show my market prediction for INFY",
+            auto_dispatch=False,
         )
     )
 
-    assert result["status"] == "COMPLETED"
+    assert result["status"] == "SELECTED"
     assert result["outcome"]["requested_action"] == "predict"
     assert result["selection"]["candidate"]["product_id"] == "market-bridge"
     assert result["selection"]["candidate"]["intent_id"] == "predict.market"
     assert result["payload"] == {"symbols": ["INFY"]}
-    assert result["dispatch"]["response"]["product_id"] == "market-bridge"
+    assert result["dispatch"] is None
     assert result["memory"]["last_outcome"]["required_result"] == (
         "predict market INFY"
     )
@@ -299,6 +296,7 @@ async def test_ai_analysis_payload_is_used_when_deterministic_payload_is_missing
             client_type="standalone",
             workspace_id="auto-ai-space",
             message="Show my market prediction",
+            auto_dispatch=False,
         )
     )
 
@@ -308,13 +306,13 @@ async def test_ai_analysis_payload_is_used_when_deterministic_payload_is_missing
     ]
     assert result["analysis"]["ai_status"] == "used"
     assert result["analysis"]["ai_payload_hints"] == {"symbols": ["INFY"]}
-    assert result["status"] == "COMPLETED"
+    assert result["status"] == "SELECTED"
     assert result["payload"] == {"symbols": ["INFY"]}
-    assert result["dispatch"]["status"] == "COMPLETED"
+    assert result["dispatch"] is None
 
 
 @pytest.mark.asyncio
-async def test_companion_falls_back_to_next_published_capability(
+async def test_companion_does_not_bypass_canonical_pipeline_with_fallback(
     settings_factory,
 ):
     transport = CapabilityTransport(default_timeout_seconds=0.2)
@@ -376,27 +374,17 @@ async def test_companion_falls_back_to_next_published_capability(
             )
         )
 
-        assert result["status"] == "COMPLETED"
-        assert result["dispatch"]["product_id"] == "beta-market"
-        assert result["dispatch"]["response"]["fallback"] is True
-        assert result["payload"] == {"symbols": ["INFY"]}
+        assert result["status"] == "FAILED"
+        assert result["dispatch"] is None
+        assert result["ecosystem"] is None
         explanation = result["execution_explanation"]
-        assert explanation["fallback"]["used"] is True
-        assert explanation["fallback"]["used_candidate"] == {
-            "product_id": "beta-market",
-            "capability_id": "market-forecast",
-            "intent_id": "market.forecast",
-        }
-        assert explanation["fallback"]["attempts"][-1]["status"] == "COMPLETED"
+        assert explanation["fallback"]["used"] is False
+        assert explanation["fallback"]["attempts"] == []
         task = runtime.companion_task(result["task"]["task_id"])
-        assert task["status"] == "COMPLETED"
-        assert task["result"]["fallback_used"]["product_id"] == "beta-market"
+        assert task["status"] == "FAILED"
         metrics = runtime.metrics_snapshot()["counters"]
-        assert metrics["dispatch_total"] == 2
-        assert metrics["dispatch_failed_total"] == 1
-        assert metrics["dispatch_completed_total"] == 1
-        assert metrics["fallback_dispatch_attempts_total"] == 1
-        assert metrics["fallback_dispatch_success_total"] == 1
+        assert metrics.get("dispatch_total", 0) == 0
+        assert metrics.get("fallback_dispatch_attempts_total", 0) == 0
     finally:
         runtime.stop()
 

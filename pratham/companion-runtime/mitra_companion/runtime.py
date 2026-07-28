@@ -47,6 +47,7 @@ from .ecosystem import (
 )
 from .errors import (
     AttachmentValidationError,
+    CompanionRuntimeError,
     IntentRoutingError,
     ResourceConflictError,
     ResourceNotFoundError,
@@ -1646,6 +1647,7 @@ class CompanionRuntime:
 
         task: dict[str, Any] | None = None
         dispatch_result: dict[str, Any] | None = None
+        ecosystem_result: dict[str, Any] | None = None
         assistant_status = "NEEDS_CLARIFICATION"
         assistant_text = selection.get(
             "message",
@@ -1715,114 +1717,84 @@ class CompanionRuntime:
                             "intent_id": candidate["intent_id"],
                         },
                     )
-                    dispatch_request = IntentDispatchRequest(
-                        session_id=session["session_id"],
-                        product_id=candidate["product_id"],
-                        capability_id=candidate["capability_id"],
-                        intent_id=candidate["intent_id"],
-                        payload=final_payload,
+                    final_payload.setdefault(
+                        "raj_workflow",
+                        {
+                            "action_type": "task",
+                            "title": (
+                                f"Execute {candidate['capability_id']} capability"
+                            ),
+                            "description": candidate["description"],
+                        },
                     )
                     try:
-                        dispatch_result = await self.dispatch(dispatch_request)
-                    except TransportError as exc:
-                        fallback_result = await self._attempt_fallback_dispatch(
-                            request=request,
-                            session=session,
-                            candidates=candidates,
-                            selection=selection,
-                            memory=memory_before,
-                            runtime_analysis=runtime_analysis,
-                            failed_candidate=candidate,
-                            failed_error=str(exc),
-                        )
-                        if fallback_result["used"]:
-                            dispatch_result = fallback_result[
-                                "dispatch_result"
-                            ]
-                            final_payload = fallback_result["payload"]
-                            fallback_candidate = fallback_result["candidate"]
-                            assistant_status = "COMPLETED"
-                            assistant_text = (
-                                "The first selected capability was unavailable, "
-                                "so I used the next suitable published capability "
-                                "and received a product response."
-                            )
-                            task = self.store.update_companion_task(
-                                task["task_id"],
-                                status="COMPLETED",
-                                status_detail=(
-                                    "Capability execution completed through "
-                                    "fallback routing"
+                        ecosystem_result = await self.execute_ecosystem(
+                            EcosystemExecutionRequest(
+                                session_id=session["session_id"],
+                                actor_id=request.actor_id,
+                                client_type=request.client_type,
+                                workspace_id=request.workspace_id,
+                                product_id=candidate["product_id"],
+                                capability_id=candidate["capability_id"],
+                                message=request.message,
+                                assignment=request.assignment,
+                                payload=final_payload,
+                                idempotency_key=(
+                                    request.metadata.get("idempotency_key")
+                                    if isinstance(
+                                        request.metadata.get("idempotency_key"),
+                                        str,
+                                    )
+                                    else None
                                 ),
-                                notification={
-                                    "type": "execution_status",
-                                    "message": (
-                                        "Capability execution completed through "
-                                        "fallback routing"
+                                metadata={
+                                    **request.metadata,
+                                    "canonical_entrypoint": (
+                                        "/api/v1/companion/messages"
                                     ),
+                                    "canonical_pipeline": True,
                                 },
-                                result={
-                                    "dispatch_id": dispatch_result["dispatch"][
-                                        "dispatch_id"
-                                    ],
-                                    "status": dispatch_result["dispatch"][
-                                        "status"
-                                    ],
-                                    "primary_error": str(exc),
-                                    "fallback_used": self._candidate_identity(
-                                        fallback_candidate
-                                    ),
-                                    "fallback_attempts": fallback_result[
-                                        "attempts"
-                                    ],
-                                },
-                                finished=True,
                             )
-                        else:
-                            assistant_status = "FAILED"
-                            assistant_text = (
-                                "That capability is unavailable right now. I "
-                                "recorded the failure and could not find another "
-                                "published capability with enough compatible "
-                                "inputs to run safely."
-                            )
-                            task = self.store.update_companion_task(
-                                task["task_id"],
-                                status="FAILED",
-                                status_detail=str(exc),
-                                notification={
-                                    "type": "execution_status",
-                                    "message": "Capability execution failed",
-                                },
-                                result={
-                                    "error": str(exc),
-                                    "fallback_attempts": fallback_result[
-                                        "attempts"
-                                    ],
-                                },
-                                finished=True,
-                            )
-                    else:
-                        assistant_status = "COMPLETED"
+                        )
+                    except CompanionRuntimeError as exc:
+                        assistant_status = "FAILED"
                         assistant_text = (
-                            "I routed that through the selected published "
-                            "capability and received a product response."
+                            "The canonical ecosystem execution could not "
+                            "complete. Its checkpoint and recovery state were "
+                            "preserved for an operator retry."
                         )
                         task = self.store.update_companion_task(
                             task["task_id"],
-                            status="COMPLETED",
-                            status_detail="Capability execution completed",
+                            status="FAILED",
+                            status_detail=str(exc),
                             notification={
                                 "type": "execution_status",
-                                "message": "Capability execution completed",
+                                "message": "Canonical execution failed",
+                            },
+                            result={"error": str(exc)},
+                            finished=True,
+                        )
+                    else:
+                        assistant_status = "COMPLETED"
+                        assistant_text = (
+                            "I completed that through the canonical ecosystem "
+                            "pipeline and received the product response."
+                        )
+                        execution = ecosystem_result["execution"]
+                        task = self.store.update_companion_task(
+                            task["task_id"],
+                            status="COMPLETED",
+                            status_detail=(
+                                "Canonical ecosystem execution completed"
+                            ),
+                            notification={
+                                "type": "execution_status",
+                                "message": "Canonical execution completed",
                             },
                             result={
-                                "dispatch_id": dispatch_result["dispatch"][
-                                    "dispatch_id"
-                                ],
-                                "status": dispatch_result["dispatch"][
-                                    "status"
-                                ],
+                                "execution_id": execution["execution_id"],
+                                "trace_id": execution["trace_id"],
+                                "status": execution["status"],
                             },
                             finished=True,
                         )
@@ -1873,6 +1845,11 @@ class CompanionRuntime:
                     if dispatch_result
                     else None
                 ),
+                "ecosystem_execution_id": (
+                    ecosystem_result["execution"]["execution_id"]
+                    if ecosystem_result
+                    else None
+                ),
                 "task_id": task["task_id"] if task else None,
                 "execution_explanation": execution_explanation,
             },
@@ -1906,6 +1883,7 @@ class CompanionRuntime:
             "payload": final_payload,
             "dispatch": dispatch_result["dispatch"] if dispatch_result else None,
             "route": dispatch_result["route"] if dispatch_result else None,
+            "ecosystem": ecosystem_result,
             "task": task,
             "turns": {
                 "user": user_turn,
