@@ -128,13 +128,23 @@ class RuntimeStore:
         connection: Any,
         *,
         lock_scope: str | None = None,
-    ) -> None:
+        wait_for_lock: bool = True,
+    ) -> bool:
         connection.execute("BEGIN IMMEDIATE")
         if self.database_url and lock_scope:
-            connection.execute(
-                "SELECT pg_advisory_xact_lock(?)",
-                (self._advisory_key(lock_scope),),
-            )
+            parameters = (self._advisory_key(lock_scope),)
+            if wait_for_lock:
+                connection.execute(
+                    "SELECT pg_advisory_xact_lock(?)",
+                    parameters,
+                )
+            else:
+                row = connection.execute(
+                    "SELECT pg_try_advisory_xact_lock(?) AS acquired",
+                    parameters,
+                ).fetchone()
+                return bool(row["acquired"])
+        return True
 
     def _initialize(self) -> None:
         with self._schema_lock, self.connection() as connection:
@@ -703,10 +713,31 @@ class RuntimeStore:
             now_dt + timedelta(seconds=max(0.1, lease_seconds))
         ).isoformat()
         with self.connection() as connection:
-            self._begin_write_transaction(
+            lock_acquired = self._begin_write_transaction(
                 connection,
                 lock_scope=f"runtime-lease:{lease_name}",
+                wait_for_lock=False,
             )
+            if not lock_acquired:
+                connection.execute("ROLLBACK")
+                with self.connection() as read_connection:
+                    row = read_connection.execute(
+                        "SELECT * FROM runtime_leases WHERE lease_name = ?",
+                        (lease_name,),
+                    ).fetchone()
+                if row is not None:
+                    result = dict(row)
+                    result.pop("lease_token", None)
+                    result["acquired"] = False
+                    return result
+                return {
+                    "lease_name": lease_name,
+                    "holder_instance_id": None,
+                    "acquired_at": None,
+                    "renewed_at": None,
+                    "expires_at": None,
+                    "acquired": False,
+                }
             try:
                 row = connection.execute(
                     "SELECT * FROM runtime_leases WHERE lease_name = ?",

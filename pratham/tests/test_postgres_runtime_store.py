@@ -44,6 +44,39 @@ def test_postgres_write_transactions_use_scoped_advisory_locks() -> None:
     assert unlocked.calls == [("BEGIN IMMEDIATE", ())]
 
 
+def test_postgres_runtime_lease_lock_is_non_blocking() -> None:
+    class Result:
+        def fetchone(self):
+            return {"acquired": False}
+
+    class RecordingConnection:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, tuple[object, ...]]] = []
+
+        def execute(
+            self,
+            statement: str,
+            parameters: tuple[object, ...] = (),
+        ) -> Result:
+            self.calls.append((statement, parameters))
+            return Result()
+
+    store = object.__new__(RuntimeStore)
+    store.database_url = "postgresql://runtime.example/mitra"
+    connection = RecordingConnection()
+
+    acquired = store._begin_write_transaction(
+        connection,
+        lock_scope="runtime-lease:shared-maintenance",
+        wait_for_lock=False,
+    )
+
+    assert acquired is False
+    assert connection.calls[1][0] == (
+        "SELECT pg_try_advisory_xact_lock(?) AS acquired"
+    )
+
+
 @pytest.mark.skipif(
     not POSTGRES_URL,
     reason="MITRA_TEST_POSTGRES_URL is not configured",
