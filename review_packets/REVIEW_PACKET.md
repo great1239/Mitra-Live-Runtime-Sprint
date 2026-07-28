@@ -148,6 +148,8 @@ validation uses Docker or Render with `/data`.
 - Replaced the single global PostgreSQL write lock with resource-scoped
   transaction locks after hosted validation proved that unrelated supervisor,
   dispatch reconstruction, and ecosystem writes could block each other.
+- Added a versioned PostgreSQL schema sentinel and schema-scoped migration lock
+  so Vercel cold starts do not repeatedly contend on the full DDL bootstrap.
 - Added an output-driven SETU low-stock operational acceptance case and the
   bounded SETU code packet.
 - Added the strict Raj-to-Central-Depository runtime path.

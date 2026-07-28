@@ -14,6 +14,9 @@ from .errors import ContextRevisionConflict, ResourceConflictError
 from .utils import sha256_json, utc_now
 
 
+_POSTGRES_SCHEMA_VERSION = 1
+
+
 class _PostgresConnection:
     """Small DB-API compatibility layer for the runtime's portable SQL."""
 
@@ -135,7 +138,51 @@ class RuntimeStore:
 
     def _initialize(self) -> None:
         with self._schema_lock, self.connection() as connection:
-            if not self.database_url:
+            if self.database_url:
+                try:
+                    row = connection.execute(
+                        """
+                        SELECT schema_version FROM runtime_schema_meta
+                        WHERE component = ?
+                        """,
+                        ("mitra-runtime",),
+                    ).fetchone()
+                except Exception:
+                    row = None
+                if (
+                    row is not None
+                    and int(row["schema_version"])
+                    == _POSTGRES_SCHEMA_VERSION
+                ):
+                    return
+                self._begin_write_transaction(
+                    connection,
+                    lock_scope="runtime-schema",
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS runtime_schema_meta (
+                        component TEXT PRIMARY KEY,
+                        schema_version INTEGER NOT NULL,
+                        updated_at TEXT NOT NULL
+                    )
+                    """
+                )
+                row = connection.execute(
+                    """
+                    SELECT schema_version FROM runtime_schema_meta
+                    WHERE component = ?
+                    """,
+                    ("mitra-runtime",),
+                ).fetchone()
+                if (
+                    row is not None
+                    and int(row["schema_version"])
+                    == _POSTGRES_SCHEMA_VERSION
+                ):
+                    connection.execute("COMMIT")
+                    return
+            else:
                 connection.execute("PRAGMA journal_mode=WAL")
             schema = """
                 CREATE TABLE IF NOT EXISTS runtime_transitions (
@@ -487,7 +534,24 @@ class RuntimeStore:
                     "sequence BIGSERIAL PRIMARY KEY",
                 )
             connection.executescript(schema)
-            if not self.database_url:
+            if self.database_url:
+                connection.execute(
+                    """
+                    INSERT INTO runtime_schema_meta(
+                        component, schema_version, updated_at
+                    ) VALUES (?, ?, ?)
+                    ON CONFLICT(component) DO UPDATE SET
+                        schema_version = excluded.schema_version,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        "mitra-runtime",
+                        _POSTGRES_SCHEMA_VERSION,
+                        utc_now(),
+                    ),
+                )
+                connection.execute("COMMIT")
+            else:
                 self._migrate_legacy_workspace_contexts(connection)
                 self._migrate_dispatch_phases(connection)
 
