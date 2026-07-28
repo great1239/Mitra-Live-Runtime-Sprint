@@ -34,7 +34,7 @@
     "MITRA_BHIV_INTEGRATION_FAIL_CLOSED": "true",
     "MITRA_ECOSYSTEM_TIMEOUT_SECONDS": "45",
     "MITRA_RAJ_WORKFLOW_BASE_URL": "https://pratham-mitra-raj-gateway.onrender.com",
-    "MITRA_BHIV_ASHMIT_BASE_URL": "https://ai-assistant-backend-8hur.onrender.com",
+    "MITRA_BHIV_ASHMIT_BASE_URL": "https://pratham-ashmit-mitra-owner.onrender.com",
     "MITRA_BHIV_BUCKET_BASE_URL": "https://pratham-bhiv-bucket.onrender.com",
     "MITRA_BHIV_KESHAV_BASE_URL": "https://keshav-cia7.onrender.com",
     "MITRA_BHIV_KARMA_BASE_URL": "https://pratham-mitra-karma-integrity.onrender.com",
