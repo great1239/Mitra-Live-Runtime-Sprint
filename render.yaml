@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    repo: https://github.com/great1239/mitra-final-phase
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
     branch: main
     dockerContext: .
     dockerfilePath: integration_services/Dockerfile
@@ -24,7 +24,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    repo: https://github.com/great1239/mitra-final-phase
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
     branch: main
     dockerContext: .
     dockerfilePath: integration_services/Dockerfile
@@ -44,7 +44,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    repo: https://github.com/great1239/mitra-final-phase
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
     branch: main
     dockerContext: .
     dockerfilePath: integration_services/insightflow-owner.Dockerfile
@@ -62,7 +62,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    repo: https://github.com/great1239/mitra-final-phase
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
     branch: main
     dockerContext: .
     dockerfilePath: integration_services/Dockerfile
@@ -89,7 +89,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    repo: https://github.com/great1239/mitra-final-phase
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
     branch: main
     dockerContext: .
     dockerfilePath: integration_services/Dockerfile
