@@ -11,10 +11,15 @@ production evidence.
 | --- | --- |
 | `12-hosted-deployment.png` | the independent Vercel host returned the Mitra dashboard over HTTPS on 2026-07-15 |
 | `20-keshav-product-error-diagnosis.png` | the local rebuilt owner topology recorded a real Trade Bot HTTP 422, invoked KESHAV `/analyze`, and displayed its trace-preserving proposal with timestamp and hashes on 2026-07-20 |
+| `33-canonical-deployment-parity.png` | the public `/ready` response identifies canonical release `9a866bf8e1a3e68f5916b4ccd9099698e6205585`, PostgreSQL storage, three attachments, and the configured owner endpoints on 2026-07-28 |
+| `34-canonical-vercel-deployment.png` | the Vercel production deployment list shows commits `9a866bf` and `bd08955` in `Ready` state on 2026-07-28 |
 
-The hosted capture proves hosting only. The KESHAV capture proves local
-owner-repository interoperability only. Neither proves a publicly hosted
-complete owner chain.
+The hosted captures prove deployment, configuration parity, and HTTPS
+readiness only. They do not prove that every configured owner is healthy.
+The same live response reports the runtime as `DEGRADED`: SETU is healthy,
+while the public UniGuru and Trade Bot owner services are unhealthy. The
+KESHAV capture proves local owner-repository interoperability only. None of
+these files is presented as a publicly hosted complete-owner-chain execution.
 
 ## Integration Access At Last Check
 

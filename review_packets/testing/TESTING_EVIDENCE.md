@@ -5,6 +5,30 @@ Snapshot date: 2026-07-23
 This report records outputs returned by running owner services. Tests are
 listed separately and are not presented as production integration evidence.
 
+## Canonical Convergence Update - 2026-07-28
+
+The canonical user-facing path now enters `execute_ecosystem()` and enforces
+Raj before product execution and TANTRA service stages after it. Direct product
+dispatch remains an internal transport/replay primitive and is no longer the
+user-message execution route. A controlled contract test validates stage
+ordering, response capture, and deterministic replay for the complete canonical
+chain.
+
+The complete `pratham/tests` suite passed after these changes with one
+intentional PostgreSQL-environment skip. A later evidence-only rerun on
+2026-07-28 did not start because the temporary dependency cache lacked the
+compiled `pydantic_core` extension. That environment failure is not reported as
+a passing run and did not alter the deployed commit.
+
+At `2026-07-28T13:17:05+05:30`, the public `/ready` endpoint returned
+`ready=true`, release
+`9a866bf8e1a3e68f5916b4ccd9099698e6205585`, persistent PostgreSQL storage,
+and portable endpoint configuration for Raj, Ashmit, Bucket, KESHAV, Karma,
+PRANA, InsightFlow, and Central Depository. The same response returned runtime
+state `DEGRADED`: SETU was healthy, while UniGuru and Trade Bot were unhealthy.
+Configuration parity is therefore verified; complete public owner-chain
+interoperability is not.
+
 ## Automated Validation
 
 | Run | Result | Scope |
