@@ -1,6 +1,6 @@
 # Review Packet - TANTRA Ecosystem Convergence
 
-Snapshot date: 2026-07-20
+Snapshot date: 2026-07-28
 
 ## Entry Point
 
@@ -70,9 +70,9 @@ transport error even when another required owner is unconfigured. Karma runs
 before PRANA because that is required by the supplied published contract.
 PRANA is suppressed unless Karma returns `appended`.
 
-UniGuru and Samruddhi remain production manifest attachments. KESHAV is a
-conditional owner-contract stage, not a product branch. SETU, SARATHI, and
-future consumers use the same manifest or owner-contract doctrine.
+UniGuru, Samruddhi, and SETU AI CRM are production manifest attachments.
+KESHAV is a conditional owner-contract stage, not a product branch. SARATHI
+and future consumers use the same manifest or owner-contract doctrine.
 
 ## Core Execution Flow
 
@@ -141,6 +141,12 @@ validation uses Docker or Render with `/data`.
 
 ## What Changed
 
+- Added SETU AI CRM as a real production attachment with product-owned,
+  authenticated, read-only inventory, order, and operations contracts.
+- Added generic nested health assertions so a product cannot report healthy
+  while its declared database or Mitra integration dependency is unavailable.
+- Added an output-driven SETU low-stock operational acceptance case and the
+  bounded SETU code packet.
 - Added the strict Raj-to-Central-Depository runtime path.
 - Added conditional KESHAV dependency diagnosis for typed product failures,
   with an explicit no-call checkpoint for successful products.

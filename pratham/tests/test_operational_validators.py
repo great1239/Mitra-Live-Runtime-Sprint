@@ -105,7 +105,7 @@ def test_local_ecosystem_mongo_uri_is_container_portable() -> None:
     assert configurator.source_revision() != "unknown"
 
 
-def test_operational_cases_cover_both_real_product_owners() -> None:
+def test_operational_cases_cover_real_product_owners() -> None:
     validator = _load_script(
         "validate_ecosystem_runtime",
         "scripts/validate_ecosystem_runtime.py",
@@ -119,8 +119,9 @@ def test_operational_cases_cover_both_real_product_owners() -> None:
     assert {case["expected"]["product_id"] for case in cases} == {
         "samruddhi-trade-bot",
         "samruddhi-uniguru",
+        "setu-ai-crm",
     }
-    assert len(cases) == 3
+    assert len(cases) == 4
     assert all(case["payload"]["raj_workflow"] for case in cases)
     failure = next(
         case

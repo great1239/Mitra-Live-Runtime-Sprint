@@ -35,6 +35,122 @@ def _production_manifest(name: str) -> ProductAttachmentManifest:
 
 
 @pytest.mark.asyncio
+async def test_setu_production_manifest_dispatches_authenticated_envelope(
+    monkeypatch,
+):
+    requests: list[dict[str, Any]] = []
+    monkeypatch.setenv("MITRA_PRODUCT_SETU_API_KEY", "setu-test-secret")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/health":
+            return httpx.Response(
+                200,
+                json={
+                    "status": "healthy",
+                    "dependencies": {"mongodb": "connected"},
+                    "integrations": {"mitra": "configured"},
+                },
+            )
+        payload = json.loads(request.content.decode("utf-8"))
+        requests.append(
+            {
+                "path": request.url.path,
+                "api_key": request.headers.get("X-SETU-API-Key"),
+                "payload": payload,
+            }
+        )
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "success": True,
+                "trace_id": payload["correlation_id"],
+                "data": {"products": [], "count": 0},
+                "metadata": {"source": "setu-ai-crm"},
+            },
+        )
+
+    manifest = _production_manifest("product-setu-ai-crm.json")
+    manifest_payload = manifest.model_dump(mode="json")
+    transport = CapabilityTransport(
+        default_timeout_seconds=0.2,
+        http_transport=httpx.MockTransport(handler),
+    )
+
+    health = await transport.check_manifest_health(manifest_payload)
+    intent = manifest_payload["capabilities"][0]["intents"][0]
+    response = await transport.dispatch(
+        route={"dispatch": intent["dispatch"]},
+        envelope={
+            "contract_version": "1.0.0",
+            "dispatch_id": "dispatch-setu-test",
+            "session_id": "session-setu-test",
+            "correlation_id": "trace-setu-test",
+            "product_id": "setu-ai-crm",
+            "capability_id": "crm-operations",
+            "intent_id": "setu.inventory.lookup",
+            "payload": {
+                "query": "Show low stock inventory",
+                "low_stock_only": True,
+            },
+            "context": {},
+        },
+        manifest=manifest_payload,
+    )
+
+    assert health["status"] == "healthy"
+    assert health["health_contract"]["valid"] is True
+    assert response["trace_id"] == "trace-setu-test"
+    assert requests == [
+        {
+            "path": "/api/mitra/execute",
+            "api_key": "setu-test-secret",
+            "payload": {
+                "contract_version": "1.0.0",
+                "dispatch_id": "dispatch-setu-test",
+                "session_id": "session-setu-test",
+                "correlation_id": "trace-setu-test",
+                "product_id": "setu-ai-crm",
+                "capability_id": "crm-operations",
+                "intent_id": "setu.inventory.lookup",
+                "payload": {
+                    "query": "Show low stock inventory",
+                    "low_stock_only": True,
+                },
+                "context": {},
+            },
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_setu_health_rejects_disconnected_mongodb():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "status": "healthy",
+                "dependencies": {"mongodb": "disconnected"},
+                "integrations": {"mitra": "configured"},
+            },
+        )
+
+    manifest = _production_manifest("product-setu-ai-crm.json")
+    transport = CapabilityTransport(
+        default_timeout_seconds=0.2,
+        http_transport=httpx.MockTransport(handler),
+    )
+
+    health = await transport.check_manifest_health(
+        manifest.model_dump(mode="json")
+    )
+
+    assert health["status"] == "unhealthy"
+    assert health["health_contract"]["valid"] is False
+    assert "dependencies.mongodb" in health["health_contract"]["reason"]
+
+
+@pytest.mark.asyncio
 async def test_bhiv_products_attach_create_sessions_and_dispatch(
     settings_factory,
 ):

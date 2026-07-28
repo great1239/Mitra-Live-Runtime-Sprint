@@ -1,0 +1,220 @@
+{
+  "product_id": "setu-ai-crm",
+  "display_name": "SETU AI CRM",
+  "product_version": "1.0.0",
+  "contract_version": "1.0.0",
+  "attachment_mode": "remote",
+  "base_url": "https://pratham-setu-ai-crm.onrender.com",
+  "health_endpoint": "/health",
+  "capabilities": [
+    {
+      "capability_id": "crm-operations",
+      "description": "Reads live SETU CRM inventory, order, and operational state through the product-owned Mitra execution contract.",
+      "context_scopes": ["session", "workspace", "product"],
+      "metadata": {
+        "source_repository": "https://github.com/blackholeinfiverse51/ai-crm",
+        "source_repository_head": "38e9176c07776778b3cdcf7907917a3a998ac2eb",
+        "interface_file": "backend-nodejs/src/routes/mitra.js",
+        "published_health_route": "GET /health",
+        "published_dispatch_route": "POST /api/mitra/execute"
+      },
+      "intents": [
+        {
+          "intent_id": "setu.inventory.lookup",
+          "description": "Look up active inventory and optionally restrict the result to low-stock products or one SKU.",
+          "input_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["query"],
+            "properties": {
+              "query": {"type": "string", "minLength": 1, "maxLength": 2000},
+              "sku": {"type": "string", "minLength": 1, "maxLength": 100},
+              "low_stock_only": {"type": "boolean"},
+              "limit": {"type": "integer", "minimum": 1, "maximum": 100}
+            }
+          },
+          "response_schema": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["status", "success", "trace_id", "data"],
+            "properties": {
+              "status": {"const": "completed"},
+              "success": {"const": true},
+              "trace_id": {"type": "string", "minLength": 1},
+              "data": {
+                "type": "object",
+                "required": ["products", "count"],
+                "properties": {
+                  "products": {"type": "array"},
+                  "count": {"type": "integer", "minimum": 0}
+                }
+              },
+              "metadata": {"type": "object"}
+            }
+          },
+          "dispatch": {
+            "mode": "http",
+            "endpoint": "/api/mitra/execute",
+            "timeout_seconds": 30,
+            "options": {
+              "request_body": "envelope",
+              "secret_headers": {
+                "X-SETU-API-Key": "MITRA_PRODUCT_SETU_API_KEY"
+              }
+            }
+          },
+          "metadata": {
+            "owned_by_product": true,
+            "adapter_contract": "mitra-envelope-v1",
+            "requires_runtime_secret": "MITRA_PRODUCT_SETU_API_KEY",
+            "read_only": true
+          }
+        },
+        {
+          "intent_id": "setu.operations.summary",
+          "description": "Return aggregate inventory and order status counts from SETU CRM.",
+          "input_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["query"],
+            "properties": {
+              "query": {"type": "string", "minLength": 1, "maxLength": 2000}
+            }
+          },
+          "response_schema": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["status", "success", "trace_id", "data"],
+            "properties": {
+              "status": {"const": "completed"},
+              "success": {"const": true},
+              "trace_id": {"type": "string", "minLength": 1},
+              "data": {
+                "type": "object",
+                "required": [
+                  "active_products",
+                  "low_stock_products",
+                  "total_orders",
+                  "orders_by_status"
+                ],
+                "properties": {
+                  "active_products": {"type": "integer", "minimum": 0},
+                  "low_stock_products": {"type": "integer", "minimum": 0},
+                  "total_orders": {"type": "integer", "minimum": 0},
+                  "orders_by_status": {"type": "object"}
+                }
+              },
+              "metadata": {"type": "object"}
+            }
+          },
+          "dispatch": {
+            "mode": "http",
+            "endpoint": "/api/mitra/execute",
+            "timeout_seconds": 30,
+            "options": {
+              "request_body": "envelope",
+              "secret_headers": {
+                "X-SETU-API-Key": "MITRA_PRODUCT_SETU_API_KEY"
+              }
+            }
+          },
+          "metadata": {
+            "owned_by_product": true,
+            "adapter_contract": "mitra-envelope-v1",
+            "requires_runtime_secret": "MITRA_PRODUCT_SETU_API_KEY",
+            "read_only": true
+          }
+        },
+        {
+          "intent_id": "setu.order.lookup",
+          "description": "Look up the non-PII operational state of one SETU order.",
+          "input_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["query", "order_number"],
+            "properties": {
+              "query": {"type": "string", "minLength": 1, "maxLength": 2000},
+              "order_number": {"type": "string", "minLength": 1, "maxLength": 100}
+            }
+          },
+          "response_schema": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["status", "success", "trace_id", "data"],
+            "properties": {
+              "status": {"const": "completed"},
+              "success": {"const": true},
+              "trace_id": {"type": "string", "minLength": 1},
+              "data": {
+                "type": "object",
+                "required": ["order"],
+                "properties": {
+                  "order": {"type": ["object", "null"]}
+                }
+              },
+              "metadata": {"type": "object"}
+            }
+          },
+          "dispatch": {
+            "mode": "http",
+            "endpoint": "/api/mitra/execute",
+            "timeout_seconds": 30,
+            "options": {
+              "request_body": "envelope",
+              "secret_headers": {
+                "X-SETU-API-Key": "MITRA_PRODUCT_SETU_API_KEY"
+              }
+            }
+          },
+          "metadata": {
+            "owned_by_product": true,
+            "adapter_contract": "mitra-envelope-v1",
+            "requires_runtime_secret": "MITRA_PRODUCT_SETU_API_KEY",
+            "read_only": true
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "production_bootstrap": true,
+    "bhiv_product": true,
+    "bhiv_product_name": "SETU",
+    "attached_product_group": "setu",
+    "business_logic_owner": "blackholeinfiverse51/ai-crm",
+    "integration_direction": "forward",
+    "integration_surface": "published-manifest",
+    "source_repository": "https://github.com/blackholeinfiverse51/ai-crm",
+    "source_repository_head": "38e9176c07776778b3cdcf7907917a3a998ac2eb",
+    "required_runtime_env": ["MITRA_PRODUCT_SETU_API_KEY"],
+    "health_contract": {
+      "required_format": "json",
+      "expected_content_type": "application/json",
+      "status_field": "status",
+      "healthy_status_values": ["healthy"],
+      "required_field_values": {
+        "dependencies.mongodb": "connected",
+        "integrations.mitra": "configured"
+      }
+    },
+    "public_contracts": {
+      "apis": [
+        {
+          "name": "SETU AI CRM Mitra API",
+          "base_url": "https://pratham-setu-ai-crm.onrender.com",
+          "health": "GET /health",
+          "dispatch": "POST /api/mitra/execute",
+          "docs": "backend-nodejs/src/routes/mitra.js"
+        }
+      ],
+      "permissions": [
+        "setu.inventory.read",
+        "setu.operations.read",
+        "setu.orders.read"
+      ],
+      "events": {
+        "publishes": ["setu.crm.query.completed.v1"]
+      }
+    }
+  }
+}

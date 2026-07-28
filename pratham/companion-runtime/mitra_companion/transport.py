@@ -635,6 +635,38 @@ class HttpTransportAdapter:
                     ),
                 }
 
+        required_field_values = contract.get("required_field_values") or {}
+        if required_field_values:
+            if not isinstance(required_field_values, dict):
+                return {
+                    "enabled": True,
+                    "valid": False,
+                    "reason": (
+                        "health_contract.required_field_values must be an "
+                        "object"
+                    ),
+                }
+            if not isinstance(payload, dict):
+                return {
+                    "enabled": True,
+                    "valid": False,
+                    "reason": "Health response was not a JSON object",
+                }
+            for field_path, expected in required_field_values.items():
+                actual = HttpTransportAdapter._lookup_field(
+                    payload,
+                    str(field_path),
+                )
+                if actual != expected:
+                    return {
+                        "enabled": True,
+                        "valid": False,
+                        "reason": (
+                            f"Health field {field_path!r} value {actual!r} "
+                            f"did not equal {expected!r}"
+                        ),
+                    }
+
         expected_content_type = str(
             contract.get("expected_content_type") or ""
         ).lower()

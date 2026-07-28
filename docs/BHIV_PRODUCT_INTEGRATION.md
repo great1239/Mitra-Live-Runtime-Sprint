@@ -107,6 +107,7 @@ GET /api/v1/ecosystem/contracts
 | --- | --- | --- |
 | UniGuru | `contracts/examples/product-uniguru-runtime.json`; production bootstrap `contracts/production/product-samruddhi-uniguru.json` | `POST /ask`, fallback `POST /new_rag` for UniGuru's documented safe-fallback response, health `GET /health`; dispatch uses `MITRA_PRODUCT_UNIGURU_BEARER_TOKEN` and fallback uses `MITRA_PRODUCT_UNIGURU_RAG_TOKEN` when configured |
 | Samruddhi/trade-bot | `contracts/examples/product-trade-bot-main.json`; production bootstrap `contracts/production/product-samruddhi-trade-bot.json` | `POST /tools/predict`, `POST /tools/analyze`, health `GET /tools/health`; HTTP 200 payloads with `predictions[].error` are rejected as failed product execution |
+| SETU AI CRM | production bootstrap `contracts/production/product-setu-ai-crm.json` | `POST /api/mitra/execute`, health `GET /health`; requires matching `MITRA_PRODUCT_SETU_API_KEY`/`SETU_MITRA_API_KEY` secrets and is healthy only when MongoDB is connected |
 | Bucket Insight | `contracts/examples/product-bucket-insight.json` | manifest contract |
 | PRANA Runtime | `contracts/examples/product-prana-runtime.json` | manifest contract |
 | Karma Ledger | `contracts/examples/product-karma-ledger.json` | manifest contract |

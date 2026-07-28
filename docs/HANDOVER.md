@@ -158,6 +158,7 @@ BHIV integrations:
 | `MITRA_BHIV_PRANA_BASE_URL` | PRANA strict/core forwarding |
 | `MITRA_CENTRAL_DEPOSITORY_BASE_URL` | Ashmit append-only handover contract |
 | `MITRA_ECOSYSTEM_TIMEOUT_SECONDS` | owner-contract timeout |
+| `MITRA_PRODUCT_SETU_API_KEY` | SETU product machine credential; must equal SETU's `SETU_MITRA_API_KEY` |
 
 Use `_FILE` variants or `MITRA_COMPANION_SECRETS_DIR` for secrets. Runtime
 configuration APIs expose only redacted presence information.

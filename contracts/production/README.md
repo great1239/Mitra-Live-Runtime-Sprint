@@ -19,7 +19,7 @@ Products can also connect at runtime through `POST /api/v1/products/connect`.
 
 ## Approved Samruddhi Attachments
 
-This directory currently includes two real BHIV product manifests:
+This directory currently includes three real BHIV product manifests:
 
 - `product-samruddhi-uniguru.json`
   - repository: `https://github.com/VJY123VJY/uniguru_ai`
@@ -40,6 +40,16 @@ This directory currently includes two real BHIV product manifests:
   - health: `GET /tools/health`
   - response contract: rejects HTTP 200 prediction/analyze payloads when any
     `predictions[]` item contains an `error` field.
+
+- `product-setu-ai-crm.json`
+  - repository: `https://github.com/blackholeinfiverse51/ai-crm`
+  - base URL: `https://pratham-setu-ai-crm.onrender.com`
+  - dispatch: `POST /api/mitra/execute`
+  - health: `GET /health`
+  - runtime secret: `MITRA_PRODUCT_SETU_API_KEY`; the same value is configured
+    on SETU as `SETU_MITRA_API_KEY`
+  - response contract: read-only inventory, operations-summary, and order
+    lookup results backed by SETU's MongoDB models.
 
 Both manifests require JSON health responses through `metadata.health_contract`.
 A frontend fallback page, even with HTTP 200, is reported as unhealthy.

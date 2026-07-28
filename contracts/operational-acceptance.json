@@ -58,6 +58,35 @@
       }
     },
     {
+      "case_id": "setu-low-stock-inventory",
+      "message": "show me low stock inventory in SETU",
+      "assignment": "Select the attached CRM operations capability and execute its product-owned read contract through every configured ecosystem owner.",
+      "payload": {
+        "query": "show me low stock inventory in SETU",
+        "low_stock_only": true,
+        "limit": 25,
+        "raj_workflow": {
+          "action_type": "task",
+          "title": "Validate SETU low stock inventory",
+          "description": "Execute the manifest-selected SETU CRM inventory lookup without mutating product state."
+        }
+      },
+      "expected": {
+        "product_id": "setu-ai-crm",
+        "capability_id": "crm-operations",
+        "intent_id": "setu.inventory.lookup",
+        "required_product_response_paths": [
+          "data.products",
+          "data.count"
+        ],
+        "product_response_equals": {
+          "status": "completed",
+          "success": true,
+          "metadata.read_only": true
+        }
+      }
+    },
+    {
       "case_id": "tradebot-product-error-keshav",
       "product_id": "samruddhi-trade-bot",
       "capability_id": "market-prediction",
