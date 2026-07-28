@@ -7,6 +7,7 @@ import httpx
 
 from .interaction import (
     _candidate_text,
+    _routing_hints,
     _tokens,
     build_capability_understanding,
     build_payload_from_message,
@@ -318,6 +319,9 @@ class RuntimeAnalyzer:
             required_count = len(
                 build_capability_understanding(candidate)["required_inputs"]
             )
+            required_fields = set(
+                build_capability_understanding(candidate)["required_inputs"]
+            )
             if required_count:
                 schema_fit = max(0.0, 1.0 - (len(missing) / required_count))
             protocol_fit = 1.0 if dispatch.get("mode") and endpoint else 0.0
@@ -329,6 +333,35 @@ class RuntimeAnalyzer:
                 _overlap(message_tokens, candidate_tokens),
                 _overlap(outcome_tokens, candidate_tokens),
             )
+            routing_hints = _routing_hints(candidate)
+            entity_fit = (
+                0.2
+                if outcome.get("symbols")
+                and required_fields & {"symbol", "symbols"}
+                else 0.0
+            )
+            open_domain_fit = (
+                0.2
+                if routing_hints.get("open_domain_questions") is True
+                and (
+                    message.strip().endswith("?")
+                    or message.lower().startswith(
+                        (
+                            "what ",
+                            "why ",
+                            "how ",
+                            "when ",
+                            "where ",
+                            "which ",
+                        )
+                    )
+                    or bool(
+                        message_tokens
+                        & {"distance", "explain", "learn", "science"}
+                    )
+                )
+                else 0.0
+            )
             assignment_fit = _overlap(assignment_tokens, candidate_tokens)
             latency_summary = latency_by_product.get(candidate["product_id"]) or {}
             latency_penalty = min((latency_summary.get("avg") or 0) / 25000, 0.1)
@@ -339,6 +372,8 @@ class RuntimeAnalyzer:
                 + (protocol_fit * 0.12)
                 + (availability_fit * 0.16)
                 + (context_fit * 0.08)
+                + open_domain_fit
+                + entity_fit
                 - latency_penalty
             )
             gaps = []
@@ -367,6 +402,8 @@ class RuntimeAnalyzer:
                         "protocol_fit": round(protocol_fit, 4),
                         "availability_fit": round(availability_fit, 4),
                         "context_fit": round(context_fit, 4),
+                        "open_domain_fit": round(open_domain_fit, 4),
+                        "entity_fit": round(entity_fit, 4),
                     },
                     "missing_inputs": missing,
                     "candidate_understanding": build_capability_understanding(

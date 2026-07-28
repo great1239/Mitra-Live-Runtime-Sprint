@@ -186,11 +186,11 @@ def workflow_console_html() -> str:
     <section class="composer">
       <div class="eyebrow">Request</div>
       <label for="request">What should Mitra do?</label>
-      <textarea id="request" placeholder="Example: show me NVDA stock">show me NVDA stock</textarea>
+      <textarea id="request" placeholder="Example: Show AAPL stock">Show AAPL stock</textarea>
       <div class="presets" aria-label="Example requests">
-        <button class="preset" data-request="show me NVDA stock">NVDA stock</button>
-        <button class="preset" data-request="reduce water consumption via drip irrigation">Drip irrigation</button>
-        <button class="preset" data-request="show me low stock inventory in SETU">SETU inventory</button>
+        <button class="preset" data-request="Show AAPL stock">AAPL stock</button>
+        <button class="preset" data-request="Distance of Earth from Sun">Earth-Sun distance</button>
+        <button class="preset" data-request="Show low-stock inventory">Low-stock inventory</button>
       </div>
       <div class="mode"><div><span>Automatic capability selection</span>
         <small>Mitra resolves the attached product from its manifest.</small></div>

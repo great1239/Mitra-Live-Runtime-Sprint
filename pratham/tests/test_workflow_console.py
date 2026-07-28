@@ -16,3 +16,6 @@ def test_workflow_console_exposes_live_execution_surface(settings_factory):
     assert "karma-integrity" in response.text
     assert "central-depository" in response.text
     assert "JSON.stringify(output, null, 2)" in response.text
+    assert 'data-request="Show AAPL stock"' in response.text
+    assert 'data-request="Distance of Earth from Sun"' in response.text
+    assert 'data-request="Show low-stock inventory"' in response.text

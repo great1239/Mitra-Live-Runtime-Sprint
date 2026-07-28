@@ -116,7 +116,10 @@
           "metadata": {
             "owned_by_product": true,
             "adapter_contract": "native-http-payload",
-            "requires_runtime_secret": "MITRA_PRODUCT_UNIGURU_BEARER_TOKEN"
+            "requires_runtime_secret": "MITRA_PRODUCT_UNIGURU_BEARER_TOKEN",
+            "routing_hints": {
+              "open_domain_questions": true
+            }
           }
         }
       ]

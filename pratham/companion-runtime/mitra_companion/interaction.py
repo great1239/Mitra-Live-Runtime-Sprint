@@ -110,14 +110,19 @@ def _candidate_text(candidate: dict[str, Any]) -> str:
             candidate.get("description", ""),
             _flatten_metadata(candidate.get("capability_metadata", {})),
             _flatten_metadata(candidate.get("metadata", {})),
-            " ".join(
-                candidate.get("input_schema", {})
-                .get("properties", {})
-                .keys()
-            ),
         )
         if item
     )
+
+
+def _routing_hints(candidate: dict[str, Any]) -> dict[str, Any]:
+    intent_hints = (candidate.get("metadata") or {}).get("routing_hints")
+    capability_hints = (candidate.get("capability_metadata") or {}).get(
+        "routing_hints"
+    )
+    if isinstance(intent_hints, dict):
+        return intent_hints
+    return capability_hints if isinstance(capability_hints, dict) else {}
 
 
 def extract_customer_outcome(
@@ -494,6 +499,7 @@ class NaturalIntentResolver:
                 else 0.0
             )
             required_fields = set(_schema_required_fields(candidate))
+            routing_hints = _routing_hints(candidate)
             score = overlap + (outcome_overlap * 0.18)
             if product_id and candidate["product_id"] == product_id:
                 score += 0.22
@@ -510,6 +516,11 @@ class NaturalIntentResolver:
                 "text",
             }:
                 score += 0.23
+            if (
+                _is_question(message)
+                and routing_hints.get("open_domain_questions") is True
+            ):
+                score += 0.2
             if extract_symbols(message) and any(
                 "symbol" in field for field in required_fields
             ):

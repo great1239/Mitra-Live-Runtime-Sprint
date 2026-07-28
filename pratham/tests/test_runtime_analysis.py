@@ -23,6 +23,50 @@ def _manifest(name: str) -> ProductAttachmentManifest:
     )
 
 
+def _production_manifest(name: str) -> ProductAttachmentManifest:
+    return ProductAttachmentManifest.model_validate_json(
+        (ROOT / "contracts" / "production" / name).read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("message", "product_id"),
+    [
+        ("Show AAPL stock", "samruddhi-trade-bot"),
+        ("Distance of Earth from Sun", "samruddhi-uniguru"),
+        ("Show low-stock inventory", "setu-ai-crm"),
+    ],
+)
+async def test_runtime_analysis_routes_quick_select_examples(
+    runtime,
+    message,
+    product_id,
+):
+    for name in (
+        "product-samruddhi-trade-bot.json",
+        "product-samruddhi-uniguru.json",
+        "product-setu-ai-crm.json",
+    ):
+        runtime.attach(_production_manifest(name))
+
+    result = await runtime.analyze_runtime(
+        RuntimeAnalysisRequest(
+            message=message,
+            payload={"query": message},
+            allow_ai_fallback=False,
+        )
+    )
+
+    assert result["analysis"]["status"] == "matched"
+    assert (
+        result["analysis"]["recommended_candidate"]["product_id"]
+        == product_id
+    )
+
+
 @pytest.mark.asyncio
 async def test_runtime_analysis_matches_assignment_to_attached_product(runtime):
     runtime.attach(_manifest("product-trade-bot-main.json"))
