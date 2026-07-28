@@ -763,10 +763,11 @@ class PublishedEcosystemClient:
                 "payload.raj_workflow.action_type; Mitra will not invent a "
                 "workflow action"
             )
+        selected_product = capability_contract.get("product") or {}
         owner_payload = {
             **workflow_payload,
             "trace_id": trace_id,
-            "product": request.product_id,
+            "product": request.product_id or selected_product.get("product_id"),
             "mitra_context": {
                 "execution_id": execution_id,
                 "session_id": session.get("session_id"),

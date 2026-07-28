@@ -98,11 +98,6 @@ def create_app(
             business_payload.update(arguments)
 
         options = dispatch.get("options") or {}
-        if options.get("request_body", "payload") != "payload":
-            raise HTTPException(
-                status_code=422,
-                detail="only published payload request bodies are supported",
-            )
         headers = {
             "Content-Type": "application/json",
             "X-Mitra-Trace-ID": trace_id,
@@ -121,9 +116,48 @@ def create_app(
                 )
             headers["Authorization"] = f"Bearer {token}"
 
+        secret_headers = options.get("secret_headers") or {}
+        if not isinstance(secret_headers, dict):
+            raise HTTPException(
+                status_code=422,
+                detail="dispatch secret_headers must be an object",
+            )
+        for name, environment_name in secret_headers.items():
+            value = os.environ.get(str(environment_name))
+            if not value:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "required product secret is unavailable: "
+                        f"{environment_name}"
+                    ),
+                )
+            headers[str(name)] = value
+
+        request_body_mode = options.get("request_body", "payload")
+        if request_body_mode == "payload":
+            product_request = business_payload
+        elif request_body_mode == "envelope":
+            context = owner_payload.get("mitra_context") or {}
+            product_request = {
+                "dispatch_id": context.get("execution_id"),
+                "correlation_id": trace_id,
+                "product_id": product.get("product_id"),
+                "capability_id": (contract.get("capability") or {}).get(
+                    "capability_id"
+                ),
+                "intent_id": intent.get("intent_id"),
+                "payload": business_payload,
+            }
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail="unsupported published request body mode",
+            )
+
         timeout = float(dispatch.get("timeout_seconds") or 45)
         started_at = utc_now()
-        request_bytes = canonical_bytes(business_payload)
+        request_bytes = canonical_bytes(product_request)
 
         def product_error(
             error_type: str,

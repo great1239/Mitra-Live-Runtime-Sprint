@@ -229,6 +229,80 @@ def test_raj_returns_typed_product_error_for_conditional_diagnosis(
     )
 
 
+def test_raj_honors_published_envelope_and_secret_header(monkeypatch) -> None:
+    monkeypatch.setenv("SETU_TEST_API_KEY", "setu-secret")
+    observed = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed["headers"] = dict(request.headers)
+        observed["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "success": True,
+                "trace_id": "trace-envelope",
+                "data": {},
+            },
+        )
+
+    app = create_raj(transport=httpx.MockTransport(handler))
+    client = TestClient(app)
+    response = client.post(
+        "/api/workflow/execute",
+        json={
+            "trace_id": "trace-envelope",
+            "decision": "workflow",
+            "data": {
+                "workflow_type": "workflow",
+                "payload": {
+                    "action_type": "task",
+                    "mitra_context": {
+                        "execution_id": "eco-envelope",
+                        "capability_contract": {
+                            "product": {
+                                "product_id": "setu-ai-crm",
+                                "base_url": "https://product.test",
+                            },
+                            "capability": {"capability_id": "crm-operations"},
+                            "intent": {
+                                "intent_id": "setu.operations.summary",
+                                "dispatch": {
+                                    "mode": "http",
+                                    "endpoint": "/api/mitra/execute",
+                                    "options": {
+                                        "request_body": "envelope",
+                                        "secret_headers": {
+                                            "X-SETU-API-Key": "SETU_TEST_API_KEY"
+                                        },
+                                    },
+                                },
+                            },
+                            "input": {
+                                "payload": {
+                                    "query": "show operations",
+                                    "raj_workflow": {"action_type": "task"},
+                                }
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert observed["headers"]["x-setu-api-key"] == "setu-secret"
+    assert observed["payload"] == {
+        "dispatch_id": "eco-envelope",
+        "correlation_id": "trace-envelope",
+        "product_id": "setu-ai-crm",
+        "capability_id": "crm-operations",
+        "intent_id": "setu.operations.summary",
+        "payload": {"query": "show operations"},
+    }
+
+
 def test_insightflow_bridge_registers_dataset_and_provenance(monkeypatch) -> None:
     monkeypatch.setenv("INSIGHTFLOW_BRIDGE_API_KEY", "bridge-key")
     requests: list[tuple[str, str]] = []
