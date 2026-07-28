@@ -121,7 +121,7 @@ def test_public_module_blueprint_is_portable_and_fail_closed():
     assert all(service["runtime"] == "docker" for service in services.values())
     assert all(
         service["repo"]
-        == "https://github.com/great1239/mitra-final-phase"
+        == "https://github.com/great1239/Mitra-Live-Runtime-Sprint"
         for service in services.values()
     )
 

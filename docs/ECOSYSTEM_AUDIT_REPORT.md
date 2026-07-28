@@ -2,7 +2,7 @@
 
 ## Canonical Repository
 
-The canonical implementation is `great1239/mitra-final-phase`, represented by
+The canonical implementation is `great1239/Mitra-Live-Runtime-Sprint`, represented by
 this working tree. Prior sprint functionality is consolidated under
 `pratham/companion-runtime`, reusable owned runtimes under `pratham/*-runtime`,
 published contracts under `contracts`, and deployment definitions at the root.
@@ -41,4 +41,3 @@ published contracts under `contracts`, and deployment definitions at the root.
   auto-dispatch. Canonical companion execution now enters the ecosystem
   coordinator.
 - Low-level dispatch remains only as an internal transport/replay primitive.
-

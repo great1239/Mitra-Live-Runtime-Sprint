@@ -5,6 +5,5 @@
 - Canonical entry points: `POST /api/v1/companion/messages`,
   `POST /api/workflow/run`, `POST /api/v1/ecosystem/execute`
 - Production host: `https://mitra-live-runtime-sprint.vercel.app`
-- Repository: `great1239/mitra-final-phase`
+- Repository: `great1239/Mitra-Live-Runtime-Sprint`
 - Runtime contracts: version `1.0.0`
-
