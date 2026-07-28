@@ -42,6 +42,7 @@ from .observability import configure_opentelemetry
 from .ports import ManifestSourceAdapter
 from .runtime import CompanionRuntime
 from .utils import utc_now
+from .workflow_console import workflow_console_html
 
 
 def create_app(
@@ -383,7 +384,8 @@ def create_app(
       | Revision {escape(str(production_config['release_revision']))}
       <br><small>{escape(str(secrets['redaction']))}</small></div></div>
   <div class="card section"><h2>Integration surfaces</h2>
-    <div class="flow"><a href="/docs">OpenAPI explorer</a> &nbsp;|&nbsp;
+    <div class="flow"><a href="/workflow-console">Workflow console</a> &nbsp;|&nbsp;
+      <a href="/docs">OpenAPI explorer</a> &nbsp;|&nbsp;
       <a href="/api/v1/runtime/status">Runtime status</a> &nbsp;|&nbsp;
       <a href="/api/v1/runtime/continuity">Continuity</a> &nbsp;|&nbsp;
       <a href="/api/v1/runtime/dependencies/health">Dependencies</a> &nbsp;|&nbsp;
@@ -392,6 +394,10 @@ def create_app(
       &nbsp;|&nbsp; <a href="/api/v1/runtime/deployment-parity">Deployment parity</a>
       &nbsp;|&nbsp; <a href="/api/v1/intents">Intent registry</a></div></div>
 </main></body></html>"""
+
+    @app.get("/workflow-console", response_class=HTMLResponse)
+    async def workflow_console() -> str:
+        return workflow_console_html()
 
     @app.get(
         "/operator/ecosystem/{execution_id}",
