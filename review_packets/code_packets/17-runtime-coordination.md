@@ -32,6 +32,8 @@ delivery, dependency health, remote trace, metrics, and operator API behavior.
 **Why modified:** Architecture diagrams and generated reports do not establish
 runtime coordination or recovery; competing workers and failed calls must be
 executed and asserted.
+Added a hosted PostgreSQL regression for translating SQLite's unbounded
+retention limit.
 
 **Key implementation areas:** Single lease owner; peer takeover; stale-token
 fencing; 100 deliveries claimed across four workers; retry after process

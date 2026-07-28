@@ -44,9 +44,15 @@ class _PostgresConnection:
             self._connection.execute("BEGIN")
             return None
         return self._connection.execute(
-            statement.replace("?", "%s"),
+            self._portable_statement(statement),
             parameters,
         )
+
+    @staticmethod
+    def _portable_statement(statement: str) -> str:
+        # SQLite uses LIMIT -1 as "all remaining rows"; PostgreSQL spells it
+        # LIMIT ALL. Keep that dialect translation beside placeholder handling.
+        return statement.replace("LIMIT -1", "LIMIT ALL").replace("?", "%s")
 
     def executescript(self, script: str) -> Any:
         cursor = None

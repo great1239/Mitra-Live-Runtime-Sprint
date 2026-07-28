@@ -11,6 +11,8 @@ published manifest and transport contracts.
 headers, secret-backed Bearer tokens, strict health contracts that reject HTML
 fallback pages, and manifest-declared health translation for redirects and
 service-suspended pages.
+The endpoint-override fixture now follows UniGuru's recovery deployment origin
+instead of asserting the retired owner origin.
 
 **Key implementation areas:** Mock HTTP product dispatch; environment-backed
 token injection; JSON health enforcement; health redirect following;

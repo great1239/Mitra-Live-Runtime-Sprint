@@ -50,11 +50,15 @@ now use resource-scoped advisory locks instead of one process-wide lock, after
 hosted SETU validation exposed cross-request reconstruction timeouts.
 PostgreSQL cold starts now use a versioned schema sentinel and schema-scoped
 lock instead of rerunning the complete DDL bootstrap in every Vercel instance.
+PostgreSQL statement translation now converts SQLite `LIMIT -1` retention
+queries to `LIMIT ALL`, fixing hosted dependency-health and continuity writes.
 
 **Key implementation areas:** Schema migrations; artifact and lineage tables;
 atomic lease/outbox claims; fencing tokens; bounded observations; runtime
 heartbeat state; dispatch phase persistence; companion message and task records;
 resource-scoped PostgreSQL transaction locks; versioned schema bootstrap.
+resource-scoped PostgreSQL transaction locks; versioned schema bootstrap;
+portable retention-query translation.
 
 **Review focus:** Migration safety, transaction boundaries, deterministic
 ordering, JSON serialization, lineage sequence integrity, stale-claim fencing,

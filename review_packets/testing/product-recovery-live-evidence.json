@@ -1,0 +1,70 @@
+{
+  "observed_at": "2026-07-28T08:29:24.900857Z",
+  "claim_scope": "Observed public contract responses and MITRA health integration",
+  "uniguru": {
+    "base_url": "https://mitra-uniguru-recovery.vercel.app",
+    "health": {
+      "http_status": 200,
+      "status": "healthy",
+      "contract": "uniguru-query-v1",
+      "knowledge_records": 2
+    },
+    "query": {
+      "request": "reduce water consumption via drip irrigation",
+      "status": "success",
+      "domain": "Agriculture",
+      "confidence": 0.92,
+      "knowledge_id": "K_AGRI_002",
+      "trace_id": "c02cd94919cab681f24978cd8497124acf4c01771c2c0df5f24d97af31e09280"
+    },
+    "mitra_health_observation": {
+      "status": "healthy",
+      "status_code": 200,
+      "contract_valid": true,
+      "observation_id": "dep_d2222ebd64be7c826c7cc09ad10c9b7f"
+    }
+  },
+  "trade_bot": {
+    "base_url": "https://mitra-trade-bot-recovery.vercel.app",
+    "health": {
+      "http_status": 200,
+      "status": "healthy",
+      "contract": "trade-bot-tools-v1",
+      "market_data_source": "Yahoo Finance chart API"
+    },
+    "prediction": {
+      "requested_symbol": "NVDA",
+      "resolved_symbol": "NVDA",
+      "horizon": "short",
+      "candle_count": 62,
+      "market_price": 196.509995,
+      "window_change_pct": -7.8154,
+      "action": "SHORT",
+      "confidence": 0.8908,
+      "analysis_model": "transparent-window-momentum-v1"
+    },
+    "mitra_health_observation": {
+      "status": "healthy",
+      "status_code": 200,
+      "contract_valid": true
+    }
+  },
+  "canonical_execution": {
+    "execution_id": "eco_e3d5ac0767e74fb3aee84051a402b407",
+    "trace_id": "eb45156c197a7e359cd53019b8482d45b4b01ad2582d9d94e730ef9a72b4d732",
+    "selected_product": "samruddhi-trade-bot",
+    "selected_capability": "market-prediction",
+    "payload_symbol": "NVDA",
+    "status": "FAILED",
+    "failed_stage": "dependency-preflight",
+    "blocking_owner": "ashmit",
+    "blocking_owner_response": {
+      "http_status": 200,
+      "mongo_connected": false,
+      "audit_active": false,
+      "fallback_mode": true,
+      "mongo_error": "MONGODB_URI not configured"
+    },
+    "interpretation": "Product recovery succeeded; full-chain execution failed closed because Ashmit did not satisfy its published persistence health contract."
+  }
+}

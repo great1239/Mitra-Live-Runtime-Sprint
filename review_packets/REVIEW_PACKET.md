@@ -162,6 +162,14 @@ validation uses Docker or Render with `/data`.
 
 ## What Changed
 
+- Deployed independent UniGuru and Trade Bot recovery runtimes after confirming
+  the owner repositories were read-only and the owner Trade Bot host suspended.
+- Reattached production manifests to those HTTPS contracts with explicit
+  recovery ownership metadata.
+- Fixed PostgreSQL dependency-observation retention by translating SQLite
+  `LIMIT -1` to PostgreSQL `LIMIT ALL`.
+- Verified UniGuru's documented drip-irrigation result and a live
+  symbol-preserving NVDA Trade Bot result through public APIs.
 - Added SETU AI CRM as a real production attachment with product-owned,
   authenticated, read-only inventory, order, and operations contracts.
 - Added generic nested health assertions so a product cannot report healthy
@@ -383,12 +391,14 @@ Observed from the 2026-07-20 rebuilt topology:
 - KESHAV `/analyze` exposes only the diagnosis even though its owner wrapper
   internally runs bundled RAJYA, Sarathi, Core, and Bucket code. Those hidden
   outputs are not independently verified or claimed by Mitra.
-- UniGuru's public domain exposes frontend HTML rather than its backend JSON
-  contract. The validated runtime therefore maps that published origin to the
-  local healthy owner service through a generic endpoint override.
-- Trade Bot's public service returns HTTP 503 `Service Suspended`; the
-  validated runtime similarly maps the published origin to the local healthy
-  owner repository.
+- The original UniGuru domain and Trade Bot Render service remain unavailable.
+  MITRA currently uses explicitly labelled recovery deployments under the
+  authorized Vercel team; these are contract-compatible operational
+  replacements, not owner-host recovery.
+- Public canonical execution is blocked by Ashmit's owner deployment reporting
+  `MONGODB_URI not configured`, `mongo_connected=false`, and
+  `audit_active=false`. The current operator cannot modify that repository or
+  Render environment.
 - Central Depository is Bucket-backed rather than an independently deployed
   owner service. Export and persistence are proven; external acceptance and
   certification are not claimed.

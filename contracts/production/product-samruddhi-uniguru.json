@@ -4,7 +4,7 @@
   "product_version": "1.1.0",
   "contract_version": "1.0.0",
   "attachment_mode": "remote",
-  "base_url": "https://uni-guru.in",
+  "base_url": "https://mitra-uniguru-recovery.vercel.app",
   "health_endpoint": "/health",
   "capabilities": [
     {
@@ -132,6 +132,10 @@
     "integration_surface": "published-manifest",
     "source_repository": "https://github.com/VJY123VJY/uniguru_ai",
     "source_repository_head": "a0740f552b33b19e1507014d63a4af6ecb61460a",
+    "operational_deployment": "https://mitra-uniguru-recovery.vercel.app",
+    "operational_deployment_owner": "great1239/Mitra-Live-Runtime-Sprint",
+    "recovery_runtime": true,
+    "recovery_reason": "The owner deployment is unavailable and the owner repository is read-only to the current operator.",
     "required_runtime_env": [
       "MITRA_PRODUCT_UNIGURU_BEARER_TOKEN",
       "MITRA_PRODUCT_UNIGURU_RAG_TOKEN"
@@ -156,7 +160,7 @@
       "apis": [
         {
           "name": "UniGuru public reasoning API",
-          "base_url": "https://uni-guru.in",
+          "base_url": "https://mitra-uniguru-recovery.vercel.app",
           "health": "GET /health",
           "dispatch": "POST /ask",
           "fallback_dispatch": "POST /new_rag",

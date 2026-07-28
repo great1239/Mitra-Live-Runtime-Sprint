@@ -44,6 +44,8 @@ production manifest directory using the product's published API contract,
 repository provenance, declared health redirect handling, and a published
 `/new_rag` fallback when `/ask` returns UniGuru's current safe-fallback
 invalid-response signature.
+The inaccessible owner host was later replaced by the independently deployed
+recovery URL with explicit recovery ownership metadata.
 
 **Key implementation areas:** Published base URL; `POST /ask` dispatch;
 `POST /new_rag` response fallback; `GET /health` JSON health contract; source
@@ -68,6 +70,8 @@ repository.
 real production manifest directory using the product's published MCP API
 surface, repository provenance, and declared suspended-service health
 normalization.
+The suspended owner host was later replaced by the independently deployed
+recovery URL with explicit recovery ownership metadata.
 
 **Key implementation areas:** Published base URL; `POST /tools/predict`;
 `POST /tools/analyze`; `GET /tools/health`; response schemas; source

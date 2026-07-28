@@ -29,6 +29,37 @@ state `DEGRADED`: SETU was healthy, while UniGuru and Trade Bot were unhealthy.
 Configuration parity is therefore verified; complete public owner-chain
 interoperability is not.
 
+## Product Recovery Validation - 2026-07-28
+
+Two independent HTTPS recovery deployments now provide the product contracts:
+
+- `https://mitra-uniguru-recovery.vercel.app`
+- `https://mitra-trade-bot-recovery.vercel.app`
+
+Observed public calls returned:
+
+- UniGuru `GET /health`: HTTP 200 and `status=healthy`;
+- UniGuru `POST /ask`: `status=success`, domain `Agriculture`, confidence
+  `0.92`, knowledge ID `K_AGRI_002`;
+- Trade Bot `GET /tools/health`: HTTP 200 and `status=healthy`;
+- Trade Bot `POST /tools/predict`: requested and resolved symbol `NVDA`, 62
+  live market candles, and data source `Yahoo Finance chart API`.
+
+MITRA then called both health contracts and persisted healthy observations.
+The PostgreSQL `LIMIT -1` failure found during this validation was fixed by
+translating SQLite's unbounded limit to PostgreSQL `LIMIT ALL`.
+
+The complete `pratham/tests` suite passed after these changes with one
+intentional PostgreSQL-environment skip. The warning is limited to Starlette's
+current `TestClient` compatibility notice.
+
+Hosted canonical execution
+`eco_e3d5ac0767e74fb3aee84051a402b407` reached deterministic selection with
+the NVDA payload, then failed closed at dependency preflight because the public
+Ashmit owner reported `mongo_connected=false` and `audit_active=false`.
+The persisted execution remains recoverable after the owner deployment is
+configured with MongoDB. No full-chain production success is claimed.
+
 ## Automated Validation
 
 | Run | Result | Scope |

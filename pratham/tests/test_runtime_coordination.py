@@ -19,7 +19,7 @@ from mitra_companion.contracts import (
 )
 from mitra_companion.errors import ResourceConflictError
 from mitra_companion.runtime import CompanionRuntime
-from mitra_companion.store import RuntimeStore
+from mitra_companion.store import RuntimeStore, _PostgresConnection
 from mitra_companion.tantra_handover import TantraHandoverAdapter
 from mitra_companion.transport import CapabilityTransport
 from mitra_companion.utils import sha256_json
@@ -449,3 +449,16 @@ def test_operator_apis_expose_live_coordination_surfaces(settings_factory):
     assert checked.json()["continuity"]["status"] == "not-evaluated"
     assert "mitra_runtime_coordinator 1" in metrics.text
     assert "mitra_tantra_outbox_deliveries" in metrics.text
+
+
+def test_postgres_translates_sqlite_unbounded_limit() -> None:
+    statement = (
+        "SELECT observation_id FROM dependency_observations "
+        "WHERE product_id = ? ORDER BY observed_at DESC LIMIT -1 OFFSET 1000"
+    )
+
+    translated = _PostgresConnection._portable_statement(statement)
+
+    assert "LIMIT ALL OFFSET 1000" in translated
+    assert "product_id = %s" in translated
+    assert "LIMIT -1" not in translated

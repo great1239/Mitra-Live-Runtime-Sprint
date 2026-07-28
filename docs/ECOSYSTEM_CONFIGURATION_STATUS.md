@@ -1,10 +1,38 @@
 # Ecosystem Configuration Status
 
-Last completed live validation: 2026-07-23
+Last completed live validation: 2026-07-28
 
 This is the current factual configuration ledger for the Mitra ecosystem. It
 records responses produced by running services. It does not treat a manifest,
 test double, generated report, or configured URL as proof of integration.
+
+## Public Product Recovery - 2026-07-28
+
+The inaccessible owner deployments were not modified. Two independently
+deployable recovery runtimes now preserve the published product contracts:
+
+| Product | Public endpoint | Observed result |
+| --- | --- | --- |
+| UniGuru | `https://mitra-uniguru-recovery.vercel.app` | `/health` returned `healthy`; `/ask` returned the documented drip-irrigation Kosha signal, confidence `0.92`, and knowledge ID `K_AGRI_002` |
+| Trade Bot | `https://mitra-trade-bot-recovery.vercel.app` | `/tools/health` returned `healthy`; `/tools/predict` fetched 62 live NVDA candles and returned `symbol=NVDA`, `resolved_symbol=NVDA`, and the transparent `window-momentum-v1` analysis |
+
+MITRA's production manifests identify both endpoints as recovery runtimes and
+retain the original product repositories and business-logic owners. The public
+MITRA runtime recorded both health contracts as valid and returned runtime
+state `READY`.
+
+The first hosted operator health write exposed a PostgreSQL portability defect:
+SQLite's `LIMIT -1` was sent unchanged to PostgreSQL. The storage compatibility
+layer now translates it to `LIMIT ALL`; individual health checks subsequently
+returned HTTP 200 and persisted healthy observations.
+
+Hosted canonical execution
+`eco_e3d5ac0767e74fb3aee84051a402b407` selected Trade Bot and preserved the
+NVDA payload, but failed closed during dependency preflight. Ashmit's public
+health response reports `mongo_connected=false`, `audit_active=false`,
+`fallback_mode=true`, and `MONGODB_URI not configured`. Owner repository writes
+and Render environment access are unavailable to the current operator, so this
+external blocker is not replaced with a simulated success.
 
 ## Live Runtime Topology
 
