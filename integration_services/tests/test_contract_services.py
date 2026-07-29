@@ -509,3 +509,40 @@ def test_insightflow_karma_ingest_only_verifies_strict_bytes(
         "storage": "deferred-to-execution-telemetry",
     }
     assert registry_calls == []
+
+
+def test_insightflow_core_ingest_only_verifies_trace_identity(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("INSIGHTFLOW_BRIDGE_API_KEY", "bridge-key")
+    registry_calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        registry_calls.append(request)
+        return httpx.Response(500)
+
+    app = create_insightflow(
+        registry_base_url="https://registry.test",
+        registry_api_key="registry-key",
+        transport=httpx.MockTransport(handler),
+    )
+    client = TestClient(app)
+    raw = b'{"source_system":"Mitra","trace_id":"trace-core"}'
+    response = client.post(
+        "/ingest/core",
+        content=raw,
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": "bridge-key",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "status": "accepted",
+        "trace_id": "trace-core",
+        "received_sha256": response.json()["received_sha256"],
+        "stage": "prana-core",
+        "storage": "deferred-to-execution-telemetry",
+    }
+    assert registry_calls == []
