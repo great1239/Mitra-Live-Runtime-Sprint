@@ -216,12 +216,13 @@ def create_app(
         trace_id = payload.get("trace_id")
         if not isinstance(trace_id, str) or not trace_id:
             raise HTTPException(status_code=422, detail="trace_id is required")
-        return await record(
-            body=body,
-            event_type="VALIDATION",
-            trace_id=trace_id,
-            stage="karma-strict",
-        )
+        return {
+            "status": "accepted",
+            "trace_id": trace_id,
+            "received_sha256": sha256_bytes(body),
+            "stage": "karma-strict",
+            "storage": "deferred-to-execution-telemetry",
+        }
 
     @app.post("/ingest/core")
     async def ingest_core(request: Request) -> dict[str, Any]:

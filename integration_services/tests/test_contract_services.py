@@ -469,3 +469,43 @@ def test_insightflow_bridge_registers_dataset_and_provenance(monkeypatch) -> Non
         ("POST", "/api/v1/datasets/"),
         ("POST", "/api/v1/datasets/dataset-1/provenance"),
     ]
+
+
+def test_insightflow_karma_ingest_only_verifies_strict_bytes(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("INSIGHTFLOW_BRIDGE_API_KEY", "bridge-key")
+    registry_calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        registry_calls.append(request)
+        return httpx.Response(500)
+
+    app = create_insightflow(
+        registry_base_url="https://registry.test",
+        registry_api_key="registry-key",
+        transport=httpx.MockTransport(handler),
+    )
+    client = TestClient(app)
+    raw = (
+        b'{"artifact_id":"artifact-1","payload":{"large":"value"},'
+        b'"trace_id":"trace-strict"}'
+    )
+    response = client.post(
+        "/ingest/karma",
+        content=raw,
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": "bridge-key",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "status": "accepted",
+        "trace_id": "trace-strict",
+        "received_sha256": response.json()["received_sha256"],
+        "stage": "karma-strict",
+        "storage": "deferred-to-execution-telemetry",
+    }
+    assert registry_calls == []
