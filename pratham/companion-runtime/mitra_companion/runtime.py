@@ -1992,6 +1992,39 @@ class CompanionRuntime:
         candidate = matches[0]
         attachment = self.attachments.get(candidate["product_id"])
         manifest = attachment["manifest"]
+        product_payload = {
+            key: value
+            for key, value in request.payload.items()
+            if key != "raj_workflow"
+        }
+        payload_result = build_payload_from_message(
+            message=request.message,
+            explicit_payload=product_payload,
+            candidate=candidate,
+            memory=self.store.latest_companion_summary(
+                session["session_id"]
+            ),
+        )
+        if payload_result["missing"]:
+            missing = ", ".join(
+                item["field"] for item in payload_result["missing"]
+            )
+            raise IntentRoutingError(
+                "The selected capability requires unresolved inputs: "
+                + missing
+            )
+        input_schema = candidate.get("input_schema") or {}
+        if input_schema.get("additionalProperties") is False:
+            allowed_fields = set(
+                (input_schema.get("properties") or {}).keys()
+            )
+            product_payload = {
+                key: value
+                for key, value in payload_result["payload"].items()
+                if key in allowed_fields
+            }
+        else:
+            product_payload = payload_result["payload"]
         capability_contract = {
             "contract_type": "mitra.selected-capability.v1",
             "selection": {
@@ -2025,7 +2058,7 @@ class CompanionRuntime:
             "input": {
                 "message": request.message,
                 "assignment": request.assignment,
-                "payload": request.payload,
+                "payload": product_payload,
             },
         }
         return await self.ecosystem.execute(

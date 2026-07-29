@@ -509,6 +509,18 @@ async def test_strict_ecosystem_flow_records_every_owner_response(
     raj = result["stages"][2]["response"]
     assert raj["trace_id"] == raj["raj_trace_id"]
     assert environment.count("POST", "/api/workflow/execute") == 1
+    raj_call = next(
+        call
+        for call in environment.calls
+        if call["path"] == "/api/workflow/execute"
+    )
+    raj_contract = json.loads(raj_call["body"])[
+        "data"
+    ]["payload"]["mitra_context"]["capability_contract"]
+    assert raj_contract["input"]["payload"] == {
+        "symbols": ["TCS.NS"],
+        "horizon": "short",
+    }
     assert environment.count("POST", "/analyze", host="keshav.test") == 0
     assert environment.count("POST", "/api/mitra/evaluate") == 1
     assert environment.count(
