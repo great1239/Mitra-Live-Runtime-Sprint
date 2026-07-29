@@ -348,6 +348,69 @@ services:
     networks:
       - ecosystem
 
+  universal-capability-runtime:
+    <<: *contract-service
+    command:
+      - uvicorn
+      - integration_services.universal_capability_runtime:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8027"
+    environment:
+      CAPABILITY_RUNTIME_API_KEY: ${CAPABILITY_RUNTIME_API_KEY:-}
+      MITRA_PRODUCT_UNIGURU_BEARER_TOKEN: ${MITRA_PRODUCT_UNIGURU_BEARER_TOKEN:-}
+      MITRA_PRODUCT_UNIGURU_RAG_TOKEN: ${MITRA_PRODUCT_UNIGURU_RAG_TOKEN:-}
+      SETU_API_KEY: ${SETU_API_KEY:-}
+      CAPABILITY_ENDPOINT_OVERRIDES_JSON: ${CAPABILITY_ENDPOINT_OVERRIDES_JSON:-{"https://pratham-bhiv-bucket.onrender.com":"http://bucket:8000","https://uni-guru.in":"http://uniguru:8000","https://trade-bot-api.onrender.com":"http://trade-bot:8000"}}
+    ports:
+      - "127.0.0.1:8127:8027"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json,urllib.request;
+          data=json.load(urllib.request.urlopen('http://127.0.0.1:8027/health', timeout=5));
+          assert data['service']=='universal-capability-runtime'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  tantra-execution:
+    <<: *contract-service
+    command:
+      - uvicorn
+      - integration_services.tantra_execution_gateway:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8028"
+    environment:
+      TANTRA_EXECUTION_API_KEY: ${TANTRA_EXECUTION_API_KEY:-}
+      UNIVERSAL_CAPABILITY_RUNTIME_URL: http://universal-capability-runtime:8027
+      UNIVERSAL_CAPABILITY_RUNTIME_API_KEY: ${CAPABILITY_RUNTIME_API_KEY:-}
+      TANTRA_EXECUTION_TIMEOUT: "120"
+    ports:
+      - "127.0.0.1:8128:8028"
+    depends_on:
+      universal-capability-runtime:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json,urllib.request;
+          data=json.load(urllib.request.urlopen('http://127.0.0.1:8028/health', timeout=5));
+          assert data['service']=='tantra-execution-gateway';
+          assert data['runtime_configured'] is True
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   raj:
     <<: *contract-service
     command:
@@ -359,9 +422,10 @@ services:
       - "8020"
     environment:
       RAJ_API_KEY: ${RAJ_API_KEY:-}
-      RAJ_ENDPOINT_OVERRIDES_JSON: ${RAJ_ENDPOINT_OVERRIDES_JSON:-{"https://pratham-bhiv-bucket.onrender.com":"http://bucket:8000","https://uni-guru.in":"http://uniguru:8000","https://trade-bot-api.onrender.com":"http://trade-bot:8000"}}
-      MITRA_PRODUCT_UNIGURU_BEARER_TOKEN: ${MITRA_PRODUCT_UNIGURU_BEARER_TOKEN:-}
-      MITRA_PRODUCT_UNIGURU_RAG_TOKEN: ${MITRA_PRODUCT_UNIGURU_RAG_TOKEN:-}
+      RAJ_ENDPOINT_OVERRIDES_JSON: ${RAJ_ENDPOINT_OVERRIDES_JSON:-{}}
+      RAJ_TANTRA_EXECUTION_URL: http://tantra-execution:8028
+      RAJ_TANTRA_EXECUTION_API_KEY: ${TANTRA_EXECUTION_API_KEY:-}
+      RAJ_TANTRA_TIMEOUT: "150"
     ports:
       - "127.0.0.1:8120:8020"
     healthcheck:
@@ -376,6 +440,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+    depends_on:
+      tantra-execution:
+        condition: service_healthy
 
   ashmit-mongo:
     image: mongo:7.0

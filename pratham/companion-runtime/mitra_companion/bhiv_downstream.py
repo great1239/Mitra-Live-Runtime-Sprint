@@ -21,8 +21,8 @@ StageRunner = Callable[
 
 
 @dataclass(frozen=True, slots=True)
-class TantraHandoff:
-    """Immutable boundary contract produced by Mitra after Raj executes."""
+class BHIVDownstreamHandoff:
+    """Immutable handoff from capability execution to BHIV services."""
 
     execution_id: str
     trace_id: str
@@ -34,7 +34,7 @@ class TantraHandoff:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "contract": "mitra-to-tantra.post-raj.v1",
+            "contract": "capability-to-bhiv-downstream.v1",
             "execution_id": self.execution_id,
             "trace_id": self.trace_id,
             "capability_contract_hash": sha256_json(
@@ -44,10 +44,10 @@ class TantraHandoff:
         }
 
 
-class TantraConvergenceRuntime:
-    """Owns constitutional convergence after Mitra receives Raj's response."""
+class BHIVDownstreamRuntime:
+    """Coordinates published BHIV services after capability execution."""
 
-    boundary_contract = "mitra-to-tantra.post-raj.v1"
+    boundary_contract = "capability-to-bhiv-downstream.v1"
 
     def __init__(
         self,
@@ -62,8 +62,8 @@ class TantraConvergenceRuntime:
 
     def status(self) -> dict[str, Any]:
         return {
-            "entity": "TANTRA",
-            "mode": "post-raj-convergence",
+            "entity": "BHIV_DOWNSTREAM",
+            "mode": "post-capability-convergence",
             "boundary_contract": self.boundary_contract,
             "owns_stages": [
                 "keshav-diagnosis",
@@ -86,7 +86,7 @@ class TantraConvergenceRuntime:
     async def execute(
         self,
         *,
-        handoff: TantraHandoff,
+        handoff: BHIVDownstreamHandoff,
         run_stage: StageRunner,
         build_central_package: Callable[..., dict[str, Any]],
     ) -> dict[str, Any]:
@@ -203,7 +203,7 @@ class TantraConvergenceRuntime:
                 ),
             )
         return {
-            "entity": "TANTRA",
+            "entity": "BHIV_DOWNSTREAM",
             "boundary": handoff.summary(),
             "results": {
                 "keshav": keshav_result,
@@ -234,7 +234,7 @@ class TantraConvergenceRuntime:
     async def _run_integrity_chain(
         self,
         *,
-        handoff: TantraHandoff,
+        handoff: BHIVDownstreamHandoff,
         keshav_result: dict[str, Any],
         ashmit_result: dict[str, Any],
         run_stage: StageRunner,
@@ -285,7 +285,7 @@ class TantraConvergenceRuntime:
         self,
         execution_id: str,
     ) -> AsyncIterator[None]:
-        lease_name = "tantra-bucket-karma-chain-heads"
+        lease_name = "bhiv-downstream-bucket-karma-chain-heads"
         lease_holder = f"{execution_id}:{uuid4().hex}"
         operation_timeout = max(
             1.0,
@@ -305,7 +305,7 @@ class TantraConvergenceRuntime:
             await asyncio.sleep(0.025)
         if not acquired:
             raise EcosystemIntegrationError(
-                "Timed out waiting for a TANTRA artifact chain head"
+                "Timed out waiting for a BHIV downstream artifact chain head"
             )
         try:
             yield

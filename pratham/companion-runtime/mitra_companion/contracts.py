@@ -195,6 +195,26 @@ class RuntimeAnalysisRequest(VersionedContract):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class CompanionIdentityUpdateRequest(VersionedContract):
+    preferences: dict[str, Any] = Field(default_factory=dict)
+    consent_scopes: list[str] = Field(default_factory=list, max_length=50)
+    device_id: str | None = Field(default=None, min_length=1, max_length=200)
+    client_type: Literal[
+        "standalone",
+        "embedded",
+        "mobile",
+        "xr",
+        "robotics",
+    ] | None = None
+    presence_state: Literal[
+        "offline",
+        "available",
+        "busy",
+        "background",
+    ] | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ReconstructionValidationRequest(VersionedContract):
     package: dict[str, Any]
 

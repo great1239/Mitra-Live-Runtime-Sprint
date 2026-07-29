@@ -110,7 +110,12 @@ class ContractEnvironment:
         if host == "raj.test" and path == "/healthz":
             return httpx.Response(
                 200,
-                json={"status": "ok", "service": "workflow-executor"},
+                json={
+                    "status": "ok",
+                    "service": "workflow-executor",
+                    "execution_mode": "tantra-capability-runtime",
+                    "tantra_configured": True,
+                },
             )
         if host == "keshav.test" and path == "/health":
             return httpx.Response(

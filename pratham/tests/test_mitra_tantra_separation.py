@@ -3,9 +3,9 @@ from __future__ import annotations
 import inspect
 
 from mitra_companion.ecosystem import EcosystemRuntime
-from mitra_companion.tantra_runtime import (
-    TantraConvergenceRuntime,
-    TantraHandoff,
+from mitra_companion.bhiv_downstream import (
+    BHIVDownstreamHandoff,
+    BHIVDownstreamRuntime,
 )
 
 
@@ -18,13 +18,13 @@ def test_mitra_and_tantra_declare_non_overlapping_stage_ownership(runtime):
         "dependency-preflight",
         "raj-execution",
     ]
-    assert status["tantra"]["entity"] == "TANTRA"
-    assert status["tantra"]["boundary_contract"] == (
-        "mitra-to-tantra.post-raj.v1"
+    assert status["bhiv_downstream"]["entity"] == "BHIV_DOWNSTREAM"
+    assert status["bhiv_downstream"]["boundary_contract"] == (
+        "capability-to-bhiv-downstream.v1"
     )
     assert not (
         set(status["owns_stages"])
-        & set(status["tantra"]["owns_stages"])
+        & set(status["bhiv_downstream"]["owns_stages"])
     )
 
 
@@ -43,11 +43,11 @@ def test_mitra_coordinator_cannot_call_post_raj_owner_contracts_directly():
         assert f"self.client.{operation}" not in source
 
     assert "self.client.execute_raj" in source
-    assert "self.tantra.execute" in source
+    assert "self.downstream.execute" in source
 
 
-def test_tantra_runtime_owns_post_raj_contract_calls():
-    source = inspect.getsource(TantraConvergenceRuntime)
+def test_bhiv_downstream_runtime_owns_post_capability_contract_calls():
+    source = inspect.getsource(BHIVDownstreamRuntime)
 
     for operation in (
         "diagnose_keshav_product_failure",
@@ -61,4 +61,4 @@ def test_tantra_runtime_owns_post_raj_contract_calls():
         assert f"self.client.{operation}" in source
 
     assert "self.client.execute_raj" not in source
-    assert TantraHandoff.__dataclass_params__.frozen is True
+    assert BHIVDownstreamHandoff.__dataclass_params__.frozen is True

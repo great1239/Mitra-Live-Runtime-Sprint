@@ -21,7 +21,7 @@ from .errors import (
 )
 from .observability import runtime_span
 from .store import RuntimeStore
-from .tantra_runtime import TantraConvergenceRuntime, TantraHandoff
+from .bhiv_downstream import BHIVDownstreamHandoff, BHIVDownstreamRuntime
 from .telemetry import RuntimeTelemetry
 from .utils import canonical_json, sha256_json, utc_now
 
@@ -526,10 +526,13 @@ class PublishedEcosystemClient:
                 isinstance(raj_health, dict)
                 and str(raj_health.get("status", "")).lower() == "ok"
                 and raj_health.get("service") == "workflow-executor"
+                and raj_health.get("execution_mode")
+                == "tantra-capability-runtime"
+                and raj_health.get("tantra_configured") is True
             ):
                 reject_probe(
                     raj_check,
-                    "Raj health response does not identify the Workflow Executor",
+                    "Raj is not configured for the TANTRA capability-runtime path",
                 )
 
         keshav_check = checks_by_module.get("keshav")
@@ -856,6 +859,11 @@ class PublishedEcosystemClient:
             "trace_id": trace_id,
             "raj_trace_id": raj_trace_id,
             "status": "executed" if product_succeeded else "product_error",
+            "execution_path": {
+                "raj": payload.get("raj"),
+                "tantra": payload.get("tantra"),
+                "universal_capability_runtime": payload.get("runtime"),
+            },
             "operation": result,
             "execution": execution,
         }
@@ -1715,7 +1723,7 @@ class EcosystemRuntime:
         self.depository = depository
         self.telemetry = telemetry
         self.client = client
-        self.tantra = TantraConvergenceRuntime(
+        self.downstream = BHIVDownstreamRuntime(
             settings=settings,
             store=store,
             client=client,
@@ -1730,7 +1738,7 @@ class EcosystemRuntime:
                 "dependency-preflight",
                 "raj-execution",
             ],
-            "tantra": self.tantra.status(),
+            "bhiv_downstream": self.downstream.status(),
             "readiness": self.client.readiness(),
             "execution_counts": self.store.ecosystem_execution_counts(),
             "stage_failure_counts": self.store.ecosystem_stage_failure_counts(),
@@ -1900,8 +1908,8 @@ class EcosystemRuntime:
                 capability_contract=capability_result["capability_contract"],
             ),
         )
-        tantra_result = await self.tantra.execute(
-            handoff=TantraHandoff(
+        downstream_result = await self.downstream.execute(
+            handoff=BHIVDownstreamHandoff(
                 execution_id=execution_id,
                 trace_id=trace_id,
                 artifact_timestamp=execution["created_at"],
@@ -1961,8 +1969,8 @@ class EcosystemRuntime:
             "ecosystem.execution_completed",
             execution_id=execution_id,
             trace_id=trace_id,
-            tantra_boundary_contract=(
-                tantra_result["boundary"]["contract"]
+            bhiv_downstream_boundary_contract=(
+                downstream_result["boundary"]["contract"]
             ),
             replay_package_hash=package["package_hash"],
         )

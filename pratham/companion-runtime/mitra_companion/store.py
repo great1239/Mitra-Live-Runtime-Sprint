@@ -459,6 +459,17 @@ class RuntimeStore:
                 CREATE INDEX IF NOT EXISTS idx_companion_messages_session
                     ON companion_messages(session_id, created_at);
 
+                CREATE TABLE IF NOT EXISTS companion_identities (
+                    actor_id TEXT PRIMARY KEY,
+                    companion_id TEXT NOT NULL UNIQUE,
+                    profile_json TEXT NOT NULL,
+                    profile_version INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_companion_identities_updated
+                    ON companion_identities(updated_at);
+
                 CREATE TABLE IF NOT EXISTS companion_tasks (
                     task_id TEXT PRIMARY KEY,
                     session_id TEXT NOT NULL,
@@ -2927,6 +2938,54 @@ class RuntimeStore:
                 (session_id,),
             ).fetchone()
         return json.loads(row["summary_json"]) if row else {}
+
+    def get_companion_identity(
+        self,
+        actor_id: str,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM companion_identities
+                WHERE actor_id = ?
+                """,
+                (actor_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        data["profile"] = json.loads(data.pop("profile_json"))
+        return data
+
+    def upsert_companion_identity(
+        self,
+        *,
+        actor_id: str,
+        companion_id: str,
+        profile: dict[str, Any],
+    ) -> dict[str, Any]:
+        now = utc_now()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO companion_identities(
+                    actor_id, companion_id, profile_json, profile_version,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, 1, ?, ?)
+                ON CONFLICT(actor_id) DO UPDATE SET
+                    profile_json = excluded.profile_json,
+                    profile_version = companion_identities.profile_version + 1,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    actor_id,
+                    companion_id,
+                    json.dumps(profile, sort_keys=True, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+        return self.get_companion_identity(actor_id) or {}
 
     def create_companion_task(
         self,

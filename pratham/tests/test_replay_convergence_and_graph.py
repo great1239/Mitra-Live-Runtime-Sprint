@@ -335,9 +335,9 @@ async def test_companion_profile_tracks_identity_preferences_and_trust(runtime):
     assert profile["identity_continuity"]["actor_id"] == "companion-user"
     assert profile["identity_continuity"]["client_history"] == ["mobile"]
     assert profile["preferences"]["preferred_tone"] == "concise"
-    assert profile["trust"]["successful_dispatches"] == 0
-    assert profile["relationship_model"]["mode"] == (
-        "bounded-runtime-companion"
+    assert profile["interaction_observations"]["successful_dispatches"] == 0
+    assert profile["external_companion_hook"]["trust_semantics"] == (
+        "not_evaluated"
     )
 
 

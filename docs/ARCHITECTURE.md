@@ -18,8 +18,10 @@ flowchart LR
   API --> Ecosystem["Strict Ecosystem Runtime"]
   Router --> Ecosystem
   Ecosystem --> Preflight["Raj / KESHAV / Bucket / Ashmit / PRANA / Depository"]
-  Ecosystem --> Raj["Raj Workflow Contract"]
-  Raj --> OwnerProduct["Manifest-selected Product Runtime"]
+  Ecosystem --> Raj["Raj Workflow Orchestration"]
+  Raj --> Tantra["TANTRA Execution Gateway"]
+  Tantra --> UCR["Universal Capability Runtime"]
+  UCR --> OwnerProduct["Manifest-selected Product Runtime"]
   OwnerProduct --> Outcome{"Typed Product Outcome"}
   Outcome -->|product_error| Keshav["KESHAV Diagnosis Proposal"]
   Outcome -->|success| Skip["KESHAV No-call Checkpoint"]
@@ -31,13 +33,8 @@ flowchart LR
   Prana --> Insight["InsightFlow Telemetry Contract"]
   Insight --> Replay["Deterministic Reconstruction"]
   Replay --> Depository["Runtime Artifact Depository"]
-  Replay --> Handover["TANTRA Handover Adapter"]
-  Handover --> Outbox["Durable Delivery Outbox"]
-  Outbox --> Gateway["External TANTRA Gateway"]
   Supervisor["Persistent Supervisor"] --> Lease["Shared Maintenance Lease"]
   Lease --> Monitor["Continuity + Dependency Monitor"]
-  Monitor --> Outbox
-  Monitor --> Gateway
 ```
 
 ## Components
@@ -51,16 +48,19 @@ flowchart LR
 | Attachment Runtime | manifest validation and attachment state | capability implementation |
 | Product Exchange Mailbox | explicit envelopes, target inboxes, acknowledgements | automatic private-context merging |
 | Transport registry | adapter lookup by manifest mode | product-specific branches |
+| Raj | workflow orchestration and trace-preserving handoff | product execution |
+| TANTRA gateway | Raj-to-runtime execution boundary | governance or product behavior |
+| Universal Capability Runtime | registry observations, lifecycle, health, version negotiation, manifest dispatch | capability behavior or companion coordination |
 | Deterministic reconstruction | immutable dispatch and dependency reconstruction plus hash verification | external replay authority |
 | Runtime artifact depository | content-addressed artifacts and subject lineage | ecosystem acceptance or certification |
 | BHIV contract integrator | published contract calls and explicit responses | downstream product logic |
-| Strict ecosystem runtime | Raj-to-Depository ordering, checkpoints, recovery, trace bridge, owner responses | owner logic or embedded acceptance fallback |
+| Strict ecosystem runtime | selection-to-Depository ordering, checkpoints, recovery, trace bridge, owner responses | owner logic or embedded acceptance fallback |
 | KESHAV boundary | conditional dependency diagnosis transport and response validation | resolution authorization or execution |
 | Ecosystem replay ledger | offline full-chain reconstruction, stage/artifact/lineage verification | external replay authority |
-| TANTRA handover adapter | deterministic four-bundle projection, durable delivery, gateway health, trace reconciliation, opaque receipts | downstream validation, lineage, convergence, or certification decisions |
 | Runtime coordination | lease-fenced maintenance ownership and peer takeover | cross-host consensus without a shared production store |
 | Continuity monitor | reconstruction, lineage, dependency, trace, and transport checks | downstream authority judgments |
 | Capability graph | dependency planning over attached manifests | hidden product orchestration |
+| Companion identity hooks | actor identity, preferences, consent, device/client and cross-session continuity | relationship semantics, trust authority, or hover UI |
 
 ## Durable State
 
@@ -92,8 +92,9 @@ product-neutral.
 ## Execution Integrity
 
 `POST /api/v1/ecosystem/execute` is the final assignment acceptance path. It
-selects a capability from attached manifests, sends that contract to Raj, and
-accepts only a trace-preserving product success or typed product error. Success
+selects a capability from attached manifests, sends that contract through Raj,
+TANTRA, and the Universal Capability Runtime, and accepts only a
+trace-preserving product success or typed product error. Success
 records a KESHAV no-call checkpoint. A typed product error invokes KESHAV and
 requires a valid diagnosis proposal before the chain continues through Ashmit,
 Bucket, Karma, PRANA, InsightFlow, replay, and Central Depository. Mitra does
@@ -115,17 +116,10 @@ BHIV publication occurs only after the dispatch receipt and reconstruction are
 recorded. Convergence responses contain bounded depository references, not
 nested copies of the entire depository.
 
-The TANTRA package is built from that same verified reconstruction before the
-BHIV convergence packet is hashed. The package and delivery result are stored
-in `packet.handoffs`, so the returned convergence object still matches its
-content-addressed artifact. Only the TANTRA gateway is called; downstream
-authority coordination remains outside Mitra.
-
-The request is stored in `integration_outbox` before network I/O. A delivery
-lease prevents duplicate workers, expires after process loss, and allows a peer
-to continue the same request bytes. The maintenance lease ensures one live
-instance performs shared recovery, health checks, delivery retries, and
-continuity scans at a time.
+The in-repository Universal Capability Runtime is a product-neutral
+compatibility runtime, not an owner-certified substitute for Kanishk's
+service. Its versioned HTTP contract allows the owner runtime to replace it
+without changing MITRA, Raj, TANTRA, or product manifests.
 
 ## Deployment Topology
 

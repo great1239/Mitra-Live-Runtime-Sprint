@@ -29,6 +29,7 @@ from .constants import (
     RuntimeState,
 )
 from .contracts import (
+    CompanionIdentityUpdateRequest,
     CompanionMessageRequest,
     ContextTransferRequest,
     EcosystemExecutionRequest,
@@ -1596,6 +1597,44 @@ class CompanionRuntime:
         memory_before = self.store.latest_companion_summary(
             session["session_id"]
         )
+        actor_id = str(session.get("actor_id") or request.actor_id)
+        durable_identity = self.store.get_companion_identity(actor_id)
+        if durable_identity and not memory_before.get("companion_profile"):
+            identity_profile = durable_identity.get("profile") or {}
+            memory_before["companion_profile"] = {
+                "identity_continuity": {
+                    "actor_id": actor_id,
+                    "companion_id": durable_identity["companion_id"],
+                    "client_history": identity_profile.get(
+                        "client_history",
+                        [],
+                    ),
+                    "session_history": identity_profile.get(
+                        "session_history",
+                        [],
+                    ),
+                    "workspace_history": identity_profile.get(
+                        "workspace_history",
+                        [],
+                    ),
+                    "product_history": identity_profile.get(
+                        "product_history",
+                        [],
+                    ),
+                },
+                "preferences": identity_profile.get("preferences", {}),
+                "interaction_observations": {
+                    "successful_dispatches": 0,
+                    "clarifications": 0,
+                    "failed_or_unavailable_turns": 0,
+                },
+                "external_companion_hook": {
+                    "owner": "external",
+                    "relationship_semantics": "not_evaluated",
+                    "trust_semantics": "not_evaluated",
+                    "presence_ui": "not_owned_by_runtime",
+                },
+            }
         user_turn = self.store.record_companion_message(
             turn_id=f"turn_{uuid4().hex}",
             session_id=session["session_id"],
@@ -1817,6 +1856,13 @@ class CompanionRuntime:
             request=request,
             session=session,
             status=assistant_status,
+            selection=selection,
+        )
+        self._persist_companion_continuity(
+            actor_id=actor_id,
+            session=session,
+            request=request,
+            profile=memory_after["companion_profile"],
             selection=selection,
         )
         execution_explanation = self._execution_explanation(
@@ -2141,6 +2187,143 @@ class CompanionRuntime:
             raise ResourceNotFoundError(f"Unknown companion task: {task_id}")
         return task
 
+    def companion_identity(self, actor_id: str) -> dict[str, Any]:
+        identity = self.store.get_companion_identity(actor_id)
+        if identity is None:
+            raise ResourceNotFoundError(
+                f"Unknown companion identity: {actor_id}"
+            )
+        return identity
+
+    def update_companion_identity(
+        self,
+        actor_id: str,
+        request: CompanionIdentityUpdateRequest,
+    ) -> dict[str, Any]:
+        existing = self.store.get_companion_identity(actor_id) or {}
+        profile = dict(existing.get("profile") or {})
+        preferences = dict(profile.get("preferences") or {})
+        preferences.update(request.preferences)
+        consent = sorted(
+            set(profile.get("consent_scopes") or [])
+            | set(request.consent_scopes)
+        )
+        devices = list(profile.get("devices") or [])
+        if request.device_id and request.device_id not in devices:
+            devices.append(request.device_id)
+        client_history = list(profile.get("client_history") or [])
+        if (
+            request.client_type
+            and request.client_type not in client_history
+        ):
+            client_history.append(request.client_type)
+        profile.update(
+            {
+                "preferences": preferences,
+                "consent_scopes": consent,
+                "devices": devices[-16:],
+                "client_history": client_history[-16:],
+                "presence": {
+                    "state": request.presence_state
+                    or (profile.get("presence") or {}).get(
+                        "state",
+                        "offline",
+                    ),
+                    "updated_at": utc_now(),
+                    "source": "runtime-hook",
+                },
+                "metadata": {
+                    **(profile.get("metadata") or {}),
+                    **request.metadata,
+                },
+                "ownership": {
+                    "runtime": "identity-continuity-storage",
+                    "external_companion": (
+                        "relationship, trust semantics, and UI presence"
+                    ),
+                },
+            }
+        )
+        companion_id = existing.get("companion_id") or (
+            "cmp_" + sha256_json({"actor_id": actor_id})[:32]
+        )
+        return self.store.upsert_companion_identity(
+            actor_id=actor_id,
+            companion_id=companion_id,
+            profile=profile,
+        )
+
+    def _persist_companion_continuity(
+        self,
+        *,
+        actor_id: str,
+        session: dict[str, Any],
+        request: CompanionMessageRequest,
+        profile: dict[str, Any],
+        selection: dict[str, Any],
+    ) -> dict[str, Any]:
+        existing = self.store.get_companion_identity(actor_id) or {}
+        durable = dict(existing.get("profile") or {})
+
+        def append_history(name: str, value: Any) -> None:
+            values = list(durable.get(name) or [])
+            if value and value not in values:
+                values.append(value)
+            durable[name] = values[-32:]
+
+        selected = selection.get("candidate") or {}
+        append_history("session_history", session.get("session_id"))
+        append_history(
+            "workspace_history",
+            session.get("workspace_id") or request.workspace_id,
+        )
+        append_history(
+            "product_history",
+            selected.get("product_id")
+            or request.product_id
+            or session.get("active_product_id"),
+        )
+        append_history(
+            "client_history",
+            request.client_type or session.get("client_type"),
+        )
+        device_id = request.metadata.get("device_id")
+        append_history("devices", device_id)
+        durable["preferences"] = {
+            **(durable.get("preferences") or {}),
+            **(profile.get("preferences") or {}),
+        }
+        consent = request.metadata.get("consent_scopes")
+        if isinstance(consent, list):
+            durable["consent_scopes"] = sorted(
+                set(durable.get("consent_scopes") or [])
+                | {str(item) for item in consent}
+            )
+        durable["last_session_id"] = session.get("session_id")
+        durable["last_workspace_id"] = (
+            session.get("workspace_id") or request.workspace_id
+        )
+        durable["last_product_id"] = (
+            selected.get("product_id")
+            or request.product_id
+            or session.get("active_product_id")
+        )
+        durable["updated_by"] = "companion-message"
+        durable["ownership"] = {
+            "runtime": "identity and context continuity only",
+            "external_companion": (
+                "relationship semantics, trust authority, and hover UI"
+            ),
+        }
+        companion_id = existing.get("companion_id") or (
+            "cmp_" + sha256_json({"actor_id": actor_id})[:32]
+        )
+        return self.store.upsert_companion_identity(
+            actor_id=actor_id,
+            companion_id=companion_id,
+            profile=durable,
+        )
+
     @staticmethod
     def _companion_profile(
         *,
@@ -2163,24 +2346,19 @@ class CompanionRuntime:
             if key in request.metadata:
                 preferences[key] = request.metadata[key]
 
-        trust = dict(prior.get("trust") or {})
-        successful = int(trust.get("successful_dispatches") or 0)
-        clarifications = int(trust.get("clarifications") or 0)
-        failed = int(trust.get("failed_or_unavailable_turns") or 0)
+        observations = dict(prior.get("interaction_observations") or {})
+        successful = int(observations.get("successful_dispatches") or 0)
+        clarifications = int(observations.get("clarifications") or 0)
+        failed = int(observations.get("failed_or_unavailable_turns") or 0)
         if status == "COMPLETED":
             successful += 1
         elif status == "NEEDS_CLARIFICATION":
             clarifications += 1
         elif status in {"FAILED", "UNAVAILABLE"}:
             failed += 1
-        if successful >= 3 and failed == 0:
-            trust_level = "established"
-        elif failed > successful:
-            trust_level = "cautious"
-        else:
-            trust_level = "forming"
 
-        client_history = list(prior.get("client_history") or [])
+        prior_continuity = prior.get("identity_continuity") or {}
+        client_history = list(prior_continuity.get("client_history") or [])
         client_type = request.client_type or session.get("client_type")
         if client_type and client_type not in client_history:
             client_history.append(client_type)
@@ -2189,33 +2367,46 @@ class CompanionRuntime:
         return {
             "identity_continuity": {
                 "actor_id": session.get("actor_id") or request.actor_id,
+                "companion_id": prior_continuity.get("companion_id"),
                 "workspace_id": session.get("workspace_id")
                 or request.workspace_id,
                 "session_id": session.get("session_id"),
                 "client_type": client_type,
                 "client_history": client_history[-8:],
+                "session_history": prior_continuity.get(
+                    "session_history",
+                    [],
+                ),
+                "workspace_history": prior_continuity.get(
+                    "workspace_history",
+                    [],
+                ),
+                "product_history": prior_continuity.get(
+                    "product_history",
+                    [],
+                ),
             },
             "preferences": preferences,
-            "trust": {
-                "level": trust_level,
+            "interaction_observations": {
                 "successful_dispatches": successful,
                 "clarifications": clarifications,
                 "failed_or_unavailable_turns": failed,
                 "last_status": status,
             },
-            "relationship_model": {
-                "mode": "bounded-runtime-companion",
-                "last_helped_with": selected.get("capability_id"),
-                "continuity_basis": [
-                    "session memory",
-                    "workspace context",
-                    "explicit metadata preferences",
-                    "published capability selections",
-                ],
-                "boundaries": [
-                    "no governance decisions",
-                    "no product-owned business logic",
-                    "no replay authority beyond immutable runtime export",
+            "external_companion_hook": {
+                "owner": "external",
+                "relationship_semantics": "not_evaluated",
+                "trust_semantics": "not_evaluated",
+                "presence_ui": "not_owned_by_runtime",
+                "last_capability_id": selected.get("capability_id"),
+                "continuity_inputs_available": [
+                    "identity",
+                    "session",
+                    "workspace",
+                    "product",
+                    "preferences",
+                    "explicit consent",
+                    "device and client history",
                 ],
             },
         }

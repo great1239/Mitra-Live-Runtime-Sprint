@@ -12,137 +12,99 @@ from jsonschema import ValidationError, validate
 from .common import canonical_bytes, require_api_key, sha256_bytes, utc_now
 
 
-def _endpoint_overrides() -> dict[str, str]:
-    value = os.environ.get("RAJ_ENDPOINT_OVERRIDES_JSON", "{}")
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("RAJ_ENDPOINT_OVERRIDES_JSON must be valid JSON") from exc
-    if not isinstance(parsed, dict) or not all(
-        isinstance(key, str) and isinstance(item, str)
-        for key, item in parsed.items()
-    ):
-        raise RuntimeError("RAJ_ENDPOINT_OVERRIDES_JSON must be a string map")
-    return {
-        key.rstrip("/"): item.rstrip("/")
-        for key, item in parsed.items()
-    }
+SUPPORTED_CONTRACT_VERSIONS = {"1.0.0"}
+SUPPORTED_RUNTIME_VERSIONS = {"1.0.0"}
 
 
 def _effective_base_url(requested_base_url: str) -> str:
+    value = os.environ.get("CAPABILITY_ENDPOINT_OVERRIDES_JSON", "{}")
+    try:
+        overrides = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "CAPABILITY_ENDPOINT_OVERRIDES_JSON must be valid JSON"
+        ) from exc
+    if not isinstance(overrides, dict):
+        raise RuntimeError(
+            "CAPABILITY_ENDPOINT_OVERRIDES_JSON must be an object"
+        )
     normalized = requested_base_url.rstrip("/")
-    return _endpoint_overrides().get(normalized, normalized)
+    override = overrides.get(normalized, normalized)
+    if not isinstance(override, str):
+        raise RuntimeError("Capability endpoint overrides must be strings")
+    return override.rstrip("/")
 
 
 def create_app(
     *,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="Raj Workflow Executor", version="1.0.0")
+    app = FastAPI(
+        title="Universal Capability Runtime Compatibility Service",
+        version="1.0.0",
+    )
     app.state.transport = transport
+    app.state.capabilities = {}
+    app.state.execution_count = 0
 
-    @app.get("/healthz")
-    async def healthz() -> dict[str, Any]:
+    @app.get("/health")
+    async def health() -> dict[str, Any]:
         return {
-            "status": "ok",
-            "service": "workflow-executor",
-            "version": "1.0.0",
-            "execution_mode": (
-                "tantra-capability-runtime"
-                if os.environ.get("RAJ_TANTRA_EXECUTION_URL")
-                else "direct-product-compatibility"
-            ),
-            "tantra_configured": bool(
-                os.environ.get("RAJ_TANTRA_EXECUTION_URL")
-            ),
+            "status": "healthy",
+            "service": "universal-capability-runtime",
+            "runtime_version": "1.0.0",
+            "mode": "product-neutral-compatibility",
+            "canonical_owner_certified": False,
+            "registered_capabilities": len(app.state.capabilities),
+            "execution_count": app.state.execution_count,
         }
 
-    @app.post("/api/workflow/execute")
+    @app.get("/api/v1/capabilities")
+    async def capabilities() -> dict[str, Any]:
+        return {
+            "runtime_version": "1.0.0",
+            "capabilities": list(app.state.capabilities.values()),
+        }
+
+    @app.post("/api/v1/capabilities/execute")
     async def execute(request: Request) -> dict[str, Any]:
-        require_api_key(request, "RAJ_API_KEY")
+        require_api_key(request, "CAPABILITY_RUNTIME_API_KEY")
         payload = await request.json()
         if not isinstance(payload, dict):
             raise HTTPException(status_code=422, detail="request must be an object")
         trace_id = payload.get("trace_id")
-        owner_payload = payload.get("data", {}).get("payload", {})
+        action_type = payload.get("action_type")
+        contract = payload.get("capability_contract")
+        contract_version = payload.get("contract_version", "1.0.0")
+        requested_runtime = payload.get("runtime_version", "1.0.0")
         if not isinstance(trace_id, str) or not trace_id:
             raise HTTPException(status_code=422, detail="trace_id is required")
-        if not isinstance(owner_payload, dict):
-            raise HTTPException(status_code=422, detail="workflow payload is required")
-        action_type = owner_payload.get("action_type")
-        contract = owner_payload.get("mitra_context", {}).get(
-            "capability_contract"
-        )
         if not isinstance(action_type, str) or not action_type:
             raise HTTPException(status_code=422, detail="action_type is required")
         if not isinstance(contract, dict):
             raise HTTPException(
                 status_code=422,
-                detail="selected capability contract is required",
+                detail="capability_contract is required",
             )
-        tantra_url = os.environ.get("RAJ_TANTRA_EXECUTION_URL")
-        if tantra_url:
-            tantra_payload = {
-                "trace_id": trace_id,
-                "action_type": action_type,
-                "capability_contract": contract,
-                "arguments": owner_payload.get("arguments"),
-                "mitra_context": owner_payload.get("mitra_context") or {},
-                "contract_version": "1.0.0",
-                "runtime_version": "1.0.0",
-            }
-            body = canonical_bytes(tantra_payload)
-            headers = {
-                "Content-Type": "application/json",
-                "X-Mitra-Trace-ID": trace_id,
-            }
-            tantra_key = os.environ.get("RAJ_TANTRA_EXECUTION_API_KEY")
-            if tantra_key:
-                headers["X-API-Key"] = tantra_key
-            try:
-                async with httpx.AsyncClient(
-                    transport=app.state.transport,
-                    timeout=float(os.environ.get("RAJ_TANTRA_TIMEOUT", "120")),
-                ) as client:
-                    response = await client.post(
-                        urljoin(
-                            tantra_url.rstrip("/") + "/",
-                            "api/v1/execute",
-                        ),
-                        content=body,
-                        headers=headers,
-                    )
-            except httpx.HTTPError as exc:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"TANTRA transport failed: {type(exc).__name__}",
-                ) from exc
-            if not 200 <= response.status_code < 300:
-                raise HTTPException(
-                    status_code=502,
-                    detail={
-                        "message": "TANTRA rejected workflow",
-                        "http_status": response.status_code,
-                        "body": response.text[:1000],
-                    },
-                )
-            result = response.json()
-            if result.get("trace_id") != trace_id:
-                raise HTTPException(
-                    status_code=502,
-                    detail="TANTRA mutated trace_id",
-                )
-            return {
-                **result,
-                "raj": {
-                    "orchestration_mode": "tantra-capability-runtime",
-                    "trace_id": trace_id,
-                    "tantra_request_sha256": sha256_bytes(body),
-                    "tantra_response_sha256": sha256_bytes(response.content),
+        if contract_version not in SUPPORTED_CONTRACT_VERSIONS:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "contract_version_not_supported",
+                    "supported": sorted(SUPPORTED_CONTRACT_VERSIONS),
                 },
-            }
+            )
+        if requested_runtime not in SUPPORTED_RUNTIME_VERSIONS:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "runtime_version_not_supported",
+                    "supported": sorted(SUPPORTED_RUNTIME_VERSIONS),
+                },
+            )
 
         product = contract.get("product") or {}
+        capability = contract.get("capability") or {}
         intent = contract.get("intent") or {}
         dispatch = intent.get("dispatch") or {}
         requested_base_url = product.get("base_url")
@@ -152,7 +114,10 @@ def create_app(
         if not isinstance(endpoint, str) or not endpoint.startswith("/"):
             raise HTTPException(status_code=422, detail="HTTP dispatch endpoint is required")
         effective_base_url = _effective_base_url(requested_base_url)
-        effective_url = urljoin(effective_base_url.rstrip("/") + "/", endpoint.lstrip("/"))
+        effective_url = urljoin(
+            effective_base_url.rstrip("/") + "/",
+            endpoint.lstrip("/"),
+        )
         if urlparse(effective_url).scheme not in {"http", "https"}:
             raise HTTPException(status_code=422, detail="unsupported dispatch URL")
 
@@ -161,7 +126,7 @@ def create_app(
             raise HTTPException(status_code=422, detail="capability input must be an object")
         business_payload = dict(original_payload)
         business_payload.pop("raj_workflow", None)
-        arguments = owner_payload.get("arguments")
+        arguments = payload.get("arguments")
         if isinstance(arguments, dict):
             business_payload.update(arguments)
 
@@ -173,7 +138,9 @@ def create_app(
         configured_headers = options.get("headers") or {}
         if not isinstance(configured_headers, dict):
             raise HTTPException(status_code=422, detail="dispatch headers must be an object")
-        headers.update({str(key): str(value) for key, value in configured_headers.items()})
+        headers.update(
+            {str(key): str(value) for key, value in configured_headers.items()}
+        )
         token_environment = options.get("bearer_token_env")
         if token_environment:
             token = os.environ.get(str(token_environment))
@@ -183,7 +150,6 @@ def create_app(
                     detail=f"required product secret is unavailable: {token_environment}",
                 )
             headers["Authorization"] = f"Bearer {token}"
-
         secret_headers = options.get("secret_headers") or {}
         if not isinstance(secret_headers, dict):
             raise HTTPException(
@@ -195,10 +161,7 @@ def create_app(
             if not value:
                 raise HTTPException(
                     status_code=503,
-                    detail=(
-                        "required product secret is unavailable: "
-                        f"{environment_name}"
-                    ),
+                    detail=f"required product secret is unavailable: {environment_name}",
                 )
             headers[str(name)] = value
 
@@ -206,14 +169,12 @@ def create_app(
         if request_body_mode == "payload":
             product_request = business_payload
         elif request_body_mode == "envelope":
-            context = owner_payload.get("mitra_context") or {}
+            context = payload.get("mitra_context") or {}
             product_request = {
                 "dispatch_id": context.get("execution_id"),
                 "correlation_id": trace_id,
                 "product_id": product.get("product_id"),
-                "capability_id": (contract.get("capability") or {}).get(
-                    "capability_id"
-                ),
+                "capability_id": capability.get("capability_id"),
                 "intent_id": intent.get("intent_id"),
                 "payload": business_payload,
             }
@@ -223,6 +184,24 @@ def create_app(
                 detail="unsupported published request body mode",
             )
 
+        capability_key = ":".join(
+            str(item)
+            for item in (
+                product.get("product_id"),
+                capability.get("capability_id"),
+                intent.get("intent_id"),
+            )
+        )
+        app.state.capabilities[capability_key] = {
+            "capability_key": capability_key,
+            "product_id": product.get("product_id"),
+            "capability_id": capability.get("capability_id"),
+            "intent_id": intent.get("intent_id"),
+            "product_version": product.get("product_version"),
+            "lifecycle_state": "ACTIVE",
+            "contract_version": contract_version,
+            "runtime_version": requested_runtime,
+        }
         timeout = float(dispatch.get("timeout_seconds") or 45)
         started_at = utc_now()
         request_bytes = canonical_bytes(product_request)
@@ -238,6 +217,11 @@ def create_app(
             return {
                 "status": "product_error",
                 "trace_id": trace_id,
+                "runtime": {
+                    "service": "universal-capability-runtime",
+                    "mode": "product-neutral-compatibility",
+                    "capability_key": capability_key,
+                },
                 "execution_result": {
                     "success": False,
                     "trace_id": trace_id,
@@ -280,6 +264,7 @@ def create_app(
                 "product_transport_error",
                 f"product transport failed: {type(exc).__name__}",
             )
+        app.state.execution_count += 1
         if not 200 <= response.status_code < 300:
             return product_error(
                 "product_rejected_workflow",
@@ -305,17 +290,21 @@ def create_app(
             except ValidationError as exc:
                 return product_error(
                     "product_response_contract_error",
-                    "product response violated manifest schema: "
-                    + exc.message,
+                    "product response violated manifest schema: " + exc.message,
                     http_status=response.status_code,
                     response_bytes=response.content,
                     response_body=response.text[:1000],
                 )
-
-        response_bytes = response.content
         return {
             "status": "success",
             "trace_id": trace_id,
+            "runtime": {
+                "service": "universal-capability-runtime",
+                "mode": "product-neutral-compatibility",
+                "capability_key": capability_key,
+                "contract_version": contract_version,
+                "runtime_version": requested_runtime,
+            },
             "execution_result": {
                 "success": True,
                 "trace_id": trace_id,
@@ -325,7 +314,7 @@ def create_app(
                 "effective_url": effective_url,
                 "http_status": response.status_code,
                 "request_sha256": sha256_bytes(request_bytes),
-                "response_sha256": sha256_bytes(response_bytes),
+                "response_sha256": sha256_bytes(response.content),
                 "started_at": started_at,
                 "completed_at": utc_now(),
                 "product_response": product_response,

@@ -1,5 +1,27 @@
 # Review Packet - TANTRA Ecosystem Convergence
 
+## Current Convergence Update
+
+Raj now hands the selected manifest contract to a distinct TANTRA execution
+gateway, which invokes a product-neutral Universal Capability Runtime before
+the product. The prior post-product `tantra_runtime.py` was renamed
+`bhiv_downstream.py` because it actually transports results through KESHAV,
+Ashmit, Bucket, Karma, PRANA, InsightFlow, replay, and Central Depository.
+
+The local Universal Capability Runtime is a runnable compatibility
+implementation, not a claim that Kanishk's owner runtime has been integrated.
+Its published boundary can be replaced by the owner service without changing
+Mitra, Raj, TANTRA, or product manifests.
+
+Companion identity hooks now preserve explicit preferences, consent, device
+and client history, and continuity across sessions, workspaces, and products.
+Relationship and trust semantics remain explicitly unevaluated for Ashwini's
+external companion layer.
+
+Validation: the complete `pratham/tests` and `integration_services/tests`
+suite passes, with one intentional skip. Docker Compose configuration also
+validates successfully.
+
 ## Canonical Product Convergence
 
 User-facing companion auto-dispatch now enters the same strict ecosystem
@@ -30,7 +52,7 @@ Start with these bounded review surfaces:
 1. `pratham/companion-runtime/mitra_companion/ecosystem.py`
 2. `pratham/tests/test_ecosystem_convergence.py`
 3. `docs/TANTRA_ECOSYSTEM_CONVERGENCE.md`
-4. `review_packets/CODE_REVIEW_PACKET/README.md`
+4. `review_packets/code_packets/README.md`
 5. `review_packets/SCREENSHOTS/README.md`
 
 Runtime process entry point: `api/index.py` ->

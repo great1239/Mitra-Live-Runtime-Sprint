@@ -18,6 +18,7 @@ from .config import RuntimeSettings
 from .constants import ContextScope, RuntimeState
 from .contracts import (
     AttachmentRequest,
+    CompanionIdentityUpdateRequest,
     CompanionMessageRequest,
     ContextTransferRequest,
     ContextUpdateRequest,
@@ -335,15 +336,18 @@ def create_app(
     <div class="card"><div class="label">Ecosystem executions</div>
       <div class="value">{ecosystem['execution_counts'].get('TOTAL', 0)}</div></div>
   </div>
-  <div class="card section"><h2>TANTRA ecosystem convergence</h2>
+  <div class="card section"><h2>Canonical execution boundaries</h2>
     <div class="flow"><strong>Natural request</strong> -> Mitra capability
-      selection -> Raj workflow execution -> <strong>TANTRA boundary</strong> ->
-      KESHAV conditional diagnosis -> Ashmit provenance -> Bucket truth ->
-      Karma integrity -> PRANA strict forwarding -> InsightFlow telemetry ->
-      deterministic replay -> Central Depository export
+      selection -> Raj orchestration -> <strong>TANTRA execution boundary</strong>
+      -> Universal Capability Runtime -> Product capability ->
+      <strong>BHIV downstream</strong> -> KESHAV conditional diagnosis ->
+      Ashmit provenance -> Bucket truth -> Karma integrity -> PRANA strict
+      forwarding -> InsightFlow telemetry -> deterministic replay ->
+      Central Depository export
       <br><small>Owner services are invoked through published contracts. A failed
-      or unconfigured stage stops downstream execution. Mitra does not execute
-      TANTRA-owned convergence stages.</small></div>
+      or unconfigured stage stops downstream execution. The local capability
+      runtime is a compatibility implementation pending canonical owner
+      certification.</small></div>
   </div>
   <div class="card section"><h2>Recent ecosystem executions</h2>
     <table><thead><tr><th>Execution</th><th>Trace</th><th>Stage</th>
@@ -1362,6 +1366,25 @@ def create_app(
     ) -> dict:
         return versioned_response(
             memory=companion.companion_memory(session_id, limit=limit)
+        )
+
+    @app.get("/api/v1/companion/identities/{actor_id}")
+    async def companion_identity(actor_id: str) -> dict:
+        return versioned_response(
+            identity=companion.companion_identity(actor_id)
+        )
+
+    @app.put("/api/v1/companion/identities/{actor_id}")
+    async def companion_identity_update(
+        actor_id: str,
+        request: CompanionIdentityUpdateRequest,
+    ) -> dict:
+        validate_contract(request)
+        return versioned_response(
+            identity=companion.update_companion_identity(
+                actor_id,
+                request,
+            )
         )
 
     @app.get("/api/v1/companion/tasks")

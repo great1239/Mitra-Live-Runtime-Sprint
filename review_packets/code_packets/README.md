@@ -45,6 +45,7 @@ critical code entry points.
 26. [Deployment parity gate](26-deployment-parity-gate.md)
 27. [Portable deployment validation](27-portable-deployment-validation.md)
 28. [Public runtime portability](28-public-runtime-portability.md)
+29. [Runtime ownership and companion continuity](33-runtime-ownership-and-continuity.md)
 
 ## Reviewer Path
 

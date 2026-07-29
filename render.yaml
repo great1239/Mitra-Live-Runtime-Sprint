@@ -1,5 +1,56 @@
 services:
   - type: web
+    name: pratham-universal-capability-runtime
+    runtime: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
+    branch: main
+    dockerContext: .
+    dockerfilePath: integration_services/Dockerfile
+    dockerCommand: >-
+      uvicorn integration_services.universal_capability_runtime:app
+      --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: CAPABILITY_RUNTIME_API_KEY
+        generateValue: true
+      - key: CAPABILITY_ENDPOINT_OVERRIDES_JSON
+        value: "{}"
+      - key: MITRA_PRODUCT_UNIGURU_BEARER_TOKEN
+        sync: false
+      - key: SETU_API_KEY
+        sync: false
+
+  - type: web
+    name: pratham-tantra-execution-gateway
+    runtime: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
+    branch: main
+    dockerContext: .
+    dockerfilePath: integration_services/Dockerfile
+    dockerCommand: >-
+      uvicorn integration_services.tantra_execution_gateway:app
+      --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: TANTRA_EXECUTION_API_KEY
+        generateValue: true
+      - key: UNIVERSAL_CAPABILITY_RUNTIME_URL
+        value: https://pratham-universal-capability-runtime.onrender.com
+      - key: UNIVERSAL_CAPABILITY_RUNTIME_API_KEY
+        fromService:
+          type: web
+          name: pratham-universal-capability-runtime
+          envVarKey: CAPABILITY_RUNTIME_API_KEY
+      - key: TANTRA_EXECUTION_TIMEOUT
+        value: "120"
+
+  - type: web
     name: pratham-mitra-raj-gateway
     runtime: docker
     plan: free
@@ -18,6 +69,15 @@ services:
         generateValue: true
       - key: RAJ_ENDPOINT_OVERRIDES_JSON
         value: "{}"
+      - key: RAJ_TANTRA_EXECUTION_URL
+        value: https://pratham-tantra-execution-gateway.onrender.com
+      - key: RAJ_TANTRA_EXECUTION_API_KEY
+        fromService:
+          type: web
+          name: pratham-tantra-execution-gateway
+          envVarKey: TANTRA_EXECUTION_API_KEY
+      - key: RAJ_TANTRA_TIMEOUT
+        value: "150"
 
   - type: web
     name: pratham-mitra-karma-integrity

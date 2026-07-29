@@ -111,6 +111,8 @@ def test_public_module_blueprint_is_portable_and_fail_closed():
         for service in blueprint["services"]
     }
     assert set(services) == {
+        "pratham-universal-capability-runtime",
+        "pratham-tantra-execution-gateway",
         "pratham-mitra-raj-gateway",
         "pratham-mitra-karma-integrity",
         "pratham-mitra-prana-forwarder",
@@ -154,6 +156,30 @@ def test_public_module_blueprint_is_portable_and_fail_closed():
         "type": "web",
         "name": "pratham-mitra-insightflow-bridge",
         "envVarKey": "INSIGHTFLOW_BRIDGE_API_KEY",
+    }
+
+    tantra_env = {
+        item["key"]: item
+        for item in services[
+            "pratham-tantra-execution-gateway"
+        ]["envVars"]
+    }
+    assert tantra_env["UNIVERSAL_CAPABILITY_RUNTIME_API_KEY"][
+        "fromService"
+    ] == {
+        "type": "web",
+        "name": "pratham-universal-capability-runtime",
+        "envVarKey": "CAPABILITY_RUNTIME_API_KEY",
+    }
+
+    raj_env = {
+        item["key"]: item
+        for item in services["pratham-mitra-raj-gateway"]["envVars"]
+    }
+    assert raj_env["RAJ_TANTRA_EXECUTION_API_KEY"]["fromService"] == {
+        "type": "web",
+        "name": "pratham-tantra-execution-gateway",
+        "envVarKey": "TANTRA_EXECUTION_API_KEY",
     }
 
 

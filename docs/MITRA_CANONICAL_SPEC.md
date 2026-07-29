@@ -17,16 +17,20 @@ The only user execution sequence is:
 1. MITRA preserves the user, workspace, session, and request.
 2. Manifest metadata selects one published capability.
 3. MITRA creates Raj's generic task envelope from that selected contract.
-4. Raj executes the selected product contract.
-5. The product-owned runtime returns its native response.
-6. KESHAV is called only for a typed product failure.
-7. Ashmit records governance/provenance acceptance.
-8. Bucket persists the immutable execution artifact.
-9. Karma accepts the canonical hash-chain append.
-10. PRANA forwards the exact accepted bytes and verifies trace continuity.
-11. InsightFlow consumes the canonical telemetry envelope.
-12. MITRA reconstructs execution from immutable artifacts.
-13. Central Depository receives the immutable export.
+4. Raj submits the selected contract to the TANTRA execution gateway.
+5. TANTRA preserves the boundary contract and invokes the Universal Capability
+   Runtime.
+6. The Universal Capability Runtime negotiates versions, registers lifecycle
+   observations, and dispatches through the manifest transport contract.
+7. The product-owned runtime returns its native response.
+8. The BHIV downstream runtime calls KESHAV only for a typed product failure.
+9. Ashmit records governance/provenance acceptance.
+10. Bucket persists the immutable execution artifact.
+11. Karma accepts the canonical hash-chain append.
+12. PRANA forwards the exact accepted bytes and verifies trace continuity.
+13. InsightFlow consumes the canonical telemetry envelope.
+14. MITRA reconstructs execution from immutable artifacts.
+15. Central Depository receives the immutable export.
 
 Karma precedes PRANA because that ordering is required by their published
 contract, even where an assignment diagram lists the names differently.
@@ -55,14 +59,28 @@ Every stage preserves one trace ID and records immutable request bytes,
 response bytes, contract identity, hashes, timestamps, and lineage links.
 Replay reads only those artifacts and never calls a live owner service.
 
+MITRA also exposes durable companion identity hooks by actor ID. They preserve
+preferences, explicit consent scopes, device/client history, and continuity
+across sessions, workspaces, and products. MITRA does not infer relationship
+or trust semantics and does not claim ownership of the companion UI; those
+remain external owner capabilities.
+
 ## Authority Boundaries
 
-- Raj owns workflow execution.
-- TANTRA owns cross-system constitutional coordination.
-- Capability runtimes own product execution.
+- MITRA owns companion coordination, capability selection, and presentation.
+- Raj owns workflow orchestration.
+- TANTRA owns the Raj-to-execution boundary, not governance or product logic.
+- The Universal Capability Runtime owns product-neutral loading, lifecycle,
+  health, version negotiation, and manifest dispatch.
+- Product runtimes own capability behavior.
+- The BHIV downstream runtime owns ordered contract transport after execution,
+  not the authority decisions made by those systems.
 - Ashmit and Bucket own their governance and truth contracts.
 - Karma owns integrity acceptance.
 - PRANA owns strict forwarding.
 - InsightFlow/Pravah owns observability consumption.
-- MITRA owns orchestration and companion presentation only.
 
+The in-repository Universal Capability Runtime is a compatibility
+implementation that makes this boundary runnable now. It is not presented as
+Kanishk's owner-certified runtime; its published contract is the replacement
+point for that service.

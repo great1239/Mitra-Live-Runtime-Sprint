@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from mitra_companion.api import create_app
 from mitra_companion.contracts import (
+    CompanionIdentityUpdateRequest,
     CompanionMessageRequest,
     ProductAttachmentManifest,
 )
@@ -191,6 +192,101 @@ async def test_companion_message_selects_executes_and_persists_memory(
         assert metrics.get("companion_messages_completed_total", 0) == 0
     finally:
         runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_companion_identity_continues_across_sessions_and_products(
+    runtime,
+):
+    runtime.attach(_manifest("product-trade-bot-main.json"))
+    runtime.attach(_manifest("product-uniguru-runtime.json"))
+    actor_id = "continuity-user"
+
+    initial = runtime.update_companion_identity(
+        actor_id,
+        CompanionIdentityUpdateRequest(
+            preferences={"response_style": "concise"},
+            consent_scopes=["cross_product_context"],
+            device_id="windows-desktop",
+            client_type="standalone",
+            presence_state="available",
+        ),
+    )
+    market = await runtime.companion_message(
+        CompanionMessageRequest(
+            actor_id=actor_id,
+            client_type="standalone",
+            workspace_id="markets",
+            product_id="trade-bot-main",
+            message="Show AAPL stock",
+            auto_dispatch=False,
+            metadata={
+                "device_id": "windows-desktop",
+                "consent_scopes": ["cross_product_context"],
+            },
+        )
+    )
+    learning = await runtime.companion_message(
+        CompanionMessageRequest(
+            actor_id=actor_id,
+            client_type="mobile",
+            workspace_id="learning",
+            product_id="uniguru-ai",
+            message="How fast does light travel?",
+            auto_dispatch=False,
+            metadata={"device_id": "android-phone"},
+        )
+    )
+
+    identity = runtime.companion_identity(actor_id)
+    profile = identity["profile"]
+    assert identity["companion_id"] == initial["companion_id"]
+    assert market["session"]["session_id"] != learning["session"]["session_id"]
+    assert set(profile["session_history"]) == {
+        market["session"]["session_id"],
+        learning["session"]["session_id"],
+    }
+    assert profile["workspace_history"] == ["markets", "learning"]
+    assert profile["product_history"] == ["trade-bot-main", "uniguru-ai"]
+    assert profile["client_history"] == ["standalone", "mobile"]
+    assert profile["devices"] == ["windows-desktop", "android-phone"]
+    assert profile["preferences"]["response_style"] == "concise"
+    assert profile["consent_scopes"] == ["cross_product_context"]
+    assert profile["ownership"]["runtime"] == (
+        "identity and context continuity only"
+    )
+    assert "trust authority" in profile["ownership"]["external_companion"]
+    assert learning["memory"]["companion_profile"]["identity_continuity"][
+        "companion_id"
+    ] == initial["companion_id"]
+    assert learning["memory"]["companion_profile"]["preferences"][
+        "response_style"
+    ] == "concise"
+
+
+def test_companion_identity_api_exposes_runtime_hooks(settings_factory):
+    app = create_app(settings_factory())
+
+    with TestClient(app) as client:
+        updated = client.put(
+            "/api/v1/companion/identities/api-user",
+            json={
+                "preferences": {"response_style": "detailed"},
+                "consent_scopes": ["workspace_continuity"],
+                "device_id": "browser-client",
+                "client_type": "embedded",
+                "presence_state": "background",
+            },
+        )
+        assert updated.status_code == 200, updated.text
+        fetched = client.get(
+            "/api/v1/companion/identities/api-user"
+        )
+        assert fetched.status_code == 200, fetched.text
+        assert fetched.json() == updated.json()
+        assert fetched.json()["identity"]["profile"]["presence"]["state"] == (
+            "background"
+        )
 
 
 @pytest.mark.asyncio
