@@ -22,6 +22,32 @@ Validation: the complete `pratham/tests` and `integration_services/tests`
 suite passes, with one intentional skip. Docker Compose configuration also
 validates successfully.
 
+### Live Interoperability Result
+
+Public execution `eco_ff9905900fdf4facbd3d963f5be5eecf` processed the natural
+request `Show AAPL stock` through MITRA, Raj, TANTRA, the Universal Capability
+Runtime, Samruddhi, Ashmit, Bucket, Karma, PRANA, InsightFlow, replay, and
+Central Depository. Samruddhi returned HTTP 200 for `AAPL`; the persisted Raj
+receipt identifies `tantra-capability-runtime` and the UCR capability key
+`samruddhi-trade-bot:market-prediction:samruddhi.tradebot.predict`.
+
+The first request exposed synchronous storage inside PRANA's strict and core
+forward targets. After separating byte/trace verification from the dedicated
+InsightFlow storage stage, the same execution resumed from its durable
+checkpoint and completed without rerunning the product.
+
+Replay endpoint:
+
+`GET /api/v1/ecosystem/executions/eco_ff9905900fdf4facbd3d963f5be5eecf/replay`
+
+- package hash:
+  `af944d195d2b1286ef359066ceafee2f1e4352262d04d50f7af88f0b434158f6`
+- reconstructed execution hash:
+  `9485d1d99062969692028e40ae8636a07b80e904a3259748bc9624249b988b2a`
+- validation: `verified`, deterministic, clean state
+- validation I/O: zero database reads and zero live service calls
+- checks: 123 passed, 0 failed
+
 ## Canonical Product Convergence
 
 User-facing companion auto-dispatch now enters the same strict ecosystem
