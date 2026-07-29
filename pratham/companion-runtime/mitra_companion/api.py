@@ -336,11 +336,14 @@ def create_app(
       <div class="value">{ecosystem['execution_counts'].get('TOTAL', 0)}</div></div>
   </div>
   <div class="card section"><h2>TANTRA ecosystem convergence</h2>
-    <div class="flow"><strong>Mitra capability selection</strong> -> Raj workflow
-      execution -> Bucket truth -> Karma integrity -> PRANA strict forwarding ->
-      InsightFlow telemetry -> deterministic replay -> Central Depository export
+    <div class="flow"><strong>Natural request</strong> -> Mitra capability
+      selection -> Raj workflow execution -> <strong>TANTRA boundary</strong> ->
+      KESHAV conditional diagnosis -> Ashmit provenance -> Bucket truth ->
+      Karma integrity -> PRANA strict forwarding -> InsightFlow telemetry ->
+      deterministic replay -> Central Depository export
       <br><small>Owner services are invoked through published contracts. A failed
-      or unconfigured stage stops downstream execution; no embedded fallback is used.</small></div>
+      or unconfigured stage stops downstream execution. Mitra does not execute
+      TANTRA-owned convergence stages.</small></div>
   </div>
   <div class="card section"><h2>Recent ecosystem executions</h2>
     <table><thead><tr><th>Execution</th><th>Trace</th><th>Stage</th>

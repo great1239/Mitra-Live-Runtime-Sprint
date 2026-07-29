@@ -220,13 +220,13 @@ const stageDefinitions = [
   ["capability-selection", "Capability selection", "Mitra"],
   ["dependency-preflight", "Dependency preflight", "Mitra + owners"],
   ["raj-execution", "Workflow execution", "Raj"],
-  ["keshav-diagnosis", "Conditional diagnosis", "KESHAV"],
-  ["ashmit-provenance", "Provenance acceptance", "Ashmit"],
-  ["bucket-truth", "Artifact storage", "Bucket"],
-  ["karma-integrity", "Integrity append", "Karma"],
-  ["prana-forwarding", "Strict forwarding", "PRANA"],
-  ["insightflow-telemetry", "Telemetry record", "InsightFlow"],
-  ["central-depository", "Handover package", "Central Depository"]
+  ["keshav-diagnosis", "Conditional diagnosis", "TANTRA / KESHAV"],
+  ["ashmit-provenance", "Provenance acceptance", "TANTRA / Ashmit"],
+  ["bucket-truth", "Artifact storage", "TANTRA / Bucket"],
+  ["karma-integrity", "Integrity append", "TANTRA / Karma"],
+  ["prana-forwarding", "Strict forwarding", "TANTRA / PRANA"],
+  ["insightflow-telemetry", "Telemetry record", "TANTRA / InsightFlow"],
+  ["central-depository", "Handover package", "TANTRA / Central Depository"]
 ];
 let currentExecution = null;
 let selectedStage = stageDefinitions[0][0];

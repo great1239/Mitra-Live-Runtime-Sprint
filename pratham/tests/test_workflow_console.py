@@ -19,3 +19,5 @@ def test_workflow_console_exposes_live_execution_surface(settings_factory):
     assert 'data-request="Show AAPL stock"' in response.text
     assert 'data-request="Distance of Earth from Sun"' in response.text
     assert 'data-request="Show low-stock inventory"' in response.text
+    assert '"TANTRA / KESHAV"' in response.text
+    assert '"TANTRA / Central Depository"' in response.text

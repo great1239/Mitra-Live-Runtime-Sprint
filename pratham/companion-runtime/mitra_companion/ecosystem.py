@@ -21,6 +21,7 @@ from .errors import (
 )
 from .observability import runtime_span
 from .store import RuntimeStore
+from .tantra_runtime import TantraConvergenceRuntime, TantraHandoff
 from .telemetry import RuntimeTelemetry
 from .utils import canonical_json, sha256_json, utc_now
 
@@ -1714,9 +1715,22 @@ class EcosystemRuntime:
         self.depository = depository
         self.telemetry = telemetry
         self.client = client
+        self.tantra = TantraConvergenceRuntime(
+            settings=settings,
+            store=store,
+            client=client,
+        )
 
     def status(self) -> dict[str, Any]:
         return {
+            "entity": "MITRA",
+            "mode": "request-to-raj-coordinator",
+            "owns_stages": [
+                "capability-selection",
+                "dependency-preflight",
+                "raj-execution",
+            ],
+            "tantra": self.tantra.status(),
             "readiness": self.client.readiness(),
             "execution_counts": self.store.ecosystem_execution_counts(),
             "stage_failure_counts": self.store.ecosystem_stage_failure_counts(),
@@ -1886,118 +1900,26 @@ class EcosystemRuntime:
                 capability_contract=capability_result["capability_contract"],
             ),
         )
-        keshav_result = await self._run_stage(
-            execution_id=execution_id,
-            stage_name="keshav-diagnosis",
-            request_payload={
-                "trace_id": trace_id,
-                "execution_id": execution_id,
-                "product_execution_status": raj_result["status"],
-                "product_execution_hash": sha256_json(raj_result),
-                "conditional_invocation": "product-error-only",
-            },
-            operation=lambda: self.client.diagnose_keshav_product_failure(
-                trace_id=trace_id,
+        tantra_result = await self.tantra.execute(
+            handoff=TantraHandoff(
                 execution_id=execution_id,
-                capability_contract=capability_result[
-                    "capability_contract"
-                ],
-                raj_result=raj_result,
-            ),
-        )
-        ashmit_result = await self._run_stage(
-            execution_id=execution_id,
-            stage_name="ashmit-provenance",
-            request_payload={
-                "trace_id": trace_id,
-                "execution_id": execution_id,
-                "raj_result_hash": sha256_json(raj_result),
-                "keshav_result_hash": sha256_json(keshav_result),
-                "capability_contract_hash": sha256_json(
-                    capability_result["capability_contract"]
-                ),
-            },
-            operation=lambda: self.client.record_ashmit_provenance(
                 trace_id=trace_id,
-                execution_id=execution_id,
+                artifact_timestamp=execution["created_at"],
                 request=request,
                 session=session,
                 capability_contract=capability_result[
                     "capability_contract"
                 ],
                 raj_result=raj_result,
-                keshav_result=keshav_result,
             ),
-        )
-        bucket_result, karma_result = await self._run_integrity_chain(
-            execution_id=execution_id,
-            trace_id=trace_id,
-            artifact_timestamp=execution["created_at"],
-            capability_contract=capability_result["capability_contract"],
-            raj_result=raj_result,
-            keshav_result=keshav_result,
-            ashmit_result=ashmit_result,
-        )
-        prana_result = await self._run_stage(
-            execution_id=execution_id,
-            stage_name="prana-forwarding",
-            request_payload={
-                "trace_id": trace_id,
-                "karma_request_sha256": karma_result["request_sha256"],
-                "karma_request_body_utf8": karma_result["request_body_utf8"],
-            },
-            operation=lambda: self.client.forward_prana(
-                trace_id=trace_id,
-                karma_result=karma_result,
-            ),
-        )
-        insight_result = await self._run_stage(
-            execution_id=execution_id,
-            stage_name="insightflow-telemetry",
-            request_payload={
-                "trace_id": trace_id,
-                "execution_id": execution_id,
-                "raj_result_hash": sha256_json(raj_result),
-                "keshav_result_hash": sha256_json(keshav_result),
-                "ashmit_result_hash": sha256_json(ashmit_result),
-                "bucket_result_hash": sha256_json(bucket_result),
-                "karma_result_hash": sha256_json(karma_result),
-                "prana_result_hash": sha256_json(prana_result),
-            },
-            operation=lambda: self.client.emit_insightflow(
-                trace_id=trace_id,
+            run_stage=lambda stage_name, payload, operation: self._run_stage(
                 execution_id=execution_id,
-                capability_contract=capability_result["capability_contract"],
-                raj_result=raj_result,
-                keshav_result=keshav_result,
-                ashmit_result=ashmit_result,
-                bucket_result=bucket_result,
-                karma_result=karma_result,
-                prana_result=prana_result,
+                stage_name=stage_name,
+                request_payload=payload,
+                operation=operation,
             ),
+            build_central_package=self._central_package,
         )
-        handover_package = self._central_package(
-            execution_id=execution_id,
-            trace_id=trace_id,
-            insight_result=insight_result,
-        )
-        async with self._chain_head_lease(execution_id):
-            await self._run_stage(
-                execution_id=execution_id,
-                stage_name="central-depository",
-                request_payload={
-                    "trace_id": trace_id,
-                    "execution_id": execution_id,
-                    "package_hash": handover_package["package_hash"],
-                    "subject_type": "ecosystem_execution",
-                },
-                operation=lambda: self.client.deposit_central_depository(
-                    trace_id=trace_id,
-                    execution_id=execution_id,
-                    artifact_timestamp=execution["created_at"],
-                    handover_package=handover_package,
-                ),
-            )
         execution = self.store.get_ecosystem_execution(execution_id) or {}
         stages = self._stages_with_lineage(execution_id)
         package = EcosystemReplayLedger.build(
@@ -2039,6 +1961,9 @@ class EcosystemRuntime:
             "ecosystem.execution_completed",
             execution_id=execution_id,
             trace_id=trace_id,
+            tantra_boundary_contract=(
+                tantra_result["boundary"]["contract"]
+            ),
             replay_package_hash=package["package_hash"],
         )
         return self.details(execution_id)
@@ -2046,100 +1971,6 @@ class EcosystemRuntime:
     @staticmethod
     async def _return(value: dict[str, Any]) -> dict[str, Any]:
         return value
-
-    def _karma_previous_hash(self, execution_id: str) -> str:
-        latest = self.store.latest_completed_ecosystem_stage(
-            "karma-integrity",
-            exclude_execution_id=execution_id,
-        )
-        response = latest.get("response") if latest else None
-        accepted_hash = (
-            response.get("accepted_hash")
-            if isinstance(response, dict)
-            else None
-        )
-        if isinstance(accepted_hash, str) and accepted_hash:
-            return accepted_hash
-        return self.settings.bhiv_karma_previous_hash
-
-    async def _run_integrity_chain(
-        self,
-        *,
-        execution_id: str,
-        trace_id: str,
-        artifact_timestamp: str,
-        capability_contract: dict[str, Any],
-        raj_result: dict[str, Any],
-        keshav_result: dict[str, Any],
-        ashmit_result: dict[str, Any],
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
-        async with self._chain_head_lease(execution_id):
-            bucket_result = await self._run_stage(
-                execution_id=execution_id,
-                stage_name="bucket-truth",
-                request_payload={
-                    "trace_id": trace_id,
-                    "execution_id": execution_id,
-                    "artifact_timestamp": artifact_timestamp,
-                    "raj_result_hash": sha256_json(raj_result),
-                    "keshav_result_hash": sha256_json(keshav_result),
-                    "ashmit_result_hash": sha256_json(ashmit_result),
-                },
-                operation=lambda: self.client.persist_bucket(
-                    trace_id=trace_id,
-                    execution_id=execution_id,
-                    artifact_timestamp=artifact_timestamp,
-                    capability_contract=capability_contract,
-                    raj_result=raj_result,
-                    keshav_result=keshav_result,
-                    ashmit_result=ashmit_result,
-                ),
-            )
-            karma_previous_hash = self._karma_previous_hash(execution_id)
-            karma_result = await self._run_stage(
-                execution_id=execution_id,
-                stage_name="karma-integrity",
-                request_payload={
-                    "trace_id": trace_id,
-                    "bucket_payload": bucket_result["bucket_payload"],
-                    "previous_hash": karma_previous_hash,
-                },
-                operation=lambda: self.client.append_karma(
-                    trace_id=trace_id,
-                    bucket_result=bucket_result,
-                    previous_hash=karma_previous_hash,
-                ),
-            )
-            return bucket_result, karma_result
-
-    @asynccontextmanager
-    async def _chain_head_lease(
-        self,
-        execution_id: str,
-    ) -> AsyncIterator[None]:
-        lease_name = "ecosystem-bucket-karma-chain-heads"
-        lease_holder = f"{execution_id}:{uuid4().hex}"
-        operation_timeout = max(1.0, self.settings.ecosystem_timeout_seconds)
-        deadline = time.monotonic() + (operation_timeout * 2)
-        acquired = False
-        while time.monotonic() < deadline:
-            lease = self.store.claim_runtime_lease(
-                lease_name=lease_name,
-                instance_id=lease_holder,
-                lease_seconds=(operation_timeout * 2) + 1,
-            )
-            if lease["acquired"]:
-                acquired = True
-                break
-            await asyncio.sleep(0.025)
-        if not acquired:
-            raise EcosystemIntegrationError(
-                "Timed out waiting for an external artifact chain head"
-            )
-        try:
-            yield
-        finally:
-            self.store.release_runtime_leases(lease_holder)
 
     async def _run_stage(
         self,
