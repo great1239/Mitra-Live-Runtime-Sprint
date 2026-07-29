@@ -20,6 +20,8 @@ services:
         value: "{}"
       - key: MITRA_PRODUCT_UNIGURU_BEARER_TOKEN
         sync: false
+      - key: MITRA_PRODUCT_UNIGURU_RAG_TOKEN
+        sync: false
       - key: SETU_API_KEY
         sync: false
 
