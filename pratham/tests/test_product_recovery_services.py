@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from urllib.error import HTTPError
 
 from fastapi.testclient import TestClient
 
@@ -68,3 +69,41 @@ def test_trade_bot_recovery_preserves_requested_symbol(monkeypatch) -> None:
     assert payload["predictions"][0]["symbol"] == "NVDA"
     assert payload["predictions"][0]["resolved_symbol"] == "NVDA"
     assert payload["predictions"][0]["action"] == "LONG"
+
+
+def test_trade_bot_recovery_resolves_provider_symbol_after_404(
+    monkeypatch,
+) -> None:
+    module = _load(
+        "trade_bot_recovery_resolution",
+        ROOT / "product_recovery" / "trade_bot" / "api" / "index.py",
+    )
+    requested: list[str] = []
+
+    def fetch(symbol, range_value, interval):
+        requested.append(symbol)
+        if symbol == "TMPV":
+            raise HTTPError("https://finance.test", 404, "missing", {}, None)
+        return {
+            "meta": {
+                "symbol": "TMPV.NS",
+                "currency": "INR",
+                "exchangeName": "NSI",
+            },
+            "indicators": {"quote": [{"close": [350.0, 352.0]}]},
+        }
+
+    monkeypatch.setattr(module, "_fetch_chart", fetch)
+    monkeypatch.setattr(module, "_resolve_symbol", lambda symbol: "TMPV.NS")
+    client = TestClient(module.app)
+    response = client.post(
+        "/tools/predict",
+        json={"symbols": ["TMPV"], "horizon": "short"},
+    )
+
+    assert response.status_code == 200
+    prediction = response.json()["predictions"][0]
+    assert requested == ["TMPV", "TMPV.NS"]
+    assert prediction["symbol"] == "TMPV"
+    assert prediction["resolved_symbol"] == "TMPV.NS"
+    assert prediction["currency"] == "INR"

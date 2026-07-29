@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import asyncio
 from typing import Any
 
 import httpx
@@ -46,21 +47,41 @@ def create_app(
             headers["X-Mitra-Trace-ID"] = trace_id
         if app.state.target_api_key:
             headers["X-API-Key"] = app.state.target_api_key
-        try:
-            async with httpx.AsyncClient(
-                transport=app.state.transport,
-                timeout=float(os.environ.get("PRANA_FORWARD_TIMEOUT_SECONDS", "30")),
-            ) as client:
-                response = await client.post(
-                    target_url,
-                    content=body,
-                    headers=headers,
-                )
-        except httpx.HTTPError as exc:
+        attempts = max(1, int(os.environ.get("PRANA_FORWARD_ATTEMPTS", "2")))
+        response = None
+        last_error: httpx.HTTPError | None = None
+        async with httpx.AsyncClient(
+            transport=app.state.transport,
+            timeout=float(os.environ.get("PRANA_FORWARD_TIMEOUT_SECONDS", "30")),
+        ) as client:
+            for attempt in range(1, attempts + 1):
+                try:
+                    response = await client.post(
+                        target_url,
+                        content=body,
+                        headers=headers,
+                    )
+                    last_error = None
+                except httpx.HTTPError as exc:
+                    last_error = exc
+                    if attempt == attempts:
+                        break
+                else:
+                    if response.status_code not in {502, 503, 504}:
+                        break
+                    if attempt == attempts:
+                        break
+                await asyncio.sleep(min(float(attempt), 2.0))
+        if response is None:
+            assert last_error is not None
             raise HTTPException(
                 status_code=502,
-                detail=f"forward transport failed: {type(exc).__name__}",
-            ) from exc
+                detail={
+                    "error": "forward transport failed",
+                    "type": type(last_error).__name__,
+                    "attempts": attempts,
+                },
+            ) from last_error
         if not 200 <= response.status_code < 300:
             raise HTTPException(
                 status_code=502,
@@ -68,6 +89,7 @@ def create_app(
                     "error": "forward target rejected payload",
                     "http_status": response.status_code,
                     "body": response.text[:1000],
+                    "attempts": attempts,
                 },
             )
         try:

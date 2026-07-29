@@ -5,6 +5,7 @@ import json
 import httpx
 from fastapi.testclient import TestClient
 
+import integration_services.prana as prana_service
 from integration_services.insightflow_bridge import create_app as create_insightflow
 from integration_services.karma import DEFAULT_GENESIS_HASH, create_app as create_karma
 from integration_services.prana import create_app as create_prana
@@ -114,6 +115,44 @@ def test_prana_forwards_identical_bytes_and_preserves_trace() -> None:
     assert core.status_code == 200
     assert core.json()["trace_id"] == "trace-1"
     assert observed[1] == core_body
+
+
+def test_prana_retries_transient_forward_gateway_failure(monkeypatch) -> None:
+    monkeypatch.setenv("PRANA_FORWARD_ATTEMPTS", "2")
+    attempts = 0
+
+    async def no_sleep(_delay: float) -> None:
+        return None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return httpx.Response(502, text="cold upstream")
+        payload = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "status": "accepted",
+                "trace_id": payload["trace_id"],
+            },
+        )
+
+    monkeypatch.setattr(prana_service.asyncio, "sleep", no_sleep)
+    app = create_prana(
+        strict_target_url="https://insight.test/karma",
+        core_target_url="https://insight.test/core",
+        transport=httpx.MockTransport(handler),
+    )
+    response = TestClient(app).post(
+        "/forward/core",
+        content=b'{"trace_id":"trace-retry","source_system":"Mitra"}',
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["trace_id"] == "trace-retry"
+    assert attempts == 2
 
 
 def test_raj_dispatches_selected_manifest_without_product_branch(monkeypatch) -> None:

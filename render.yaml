@@ -174,3 +174,5 @@ services:
           envVarKey: INSIGHTFLOW_BRIDGE_API_KEY
       - key: PRANA_FORWARD_TIMEOUT_SECONDS
         value: "45"
+      - key: PRANA_FORWARD_ATTEMPTS
+        value: "2"

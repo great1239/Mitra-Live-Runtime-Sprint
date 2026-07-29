@@ -5,6 +5,7 @@ import json
 import math
 import urllib.parse
 import urllib.request
+from urllib.error import HTTPError
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +20,7 @@ app = FastAPI(
 )
 
 YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
 
 
 class PredictRequest(BaseModel):
@@ -89,6 +91,51 @@ def _fetch_chart(symbol: str, range_value: str, interval: str) -> dict[str, Any]
     return result
 
 
+def _resolve_symbol(symbol: str) -> str:
+    url = YAHOO_SEARCH_URL + "?" + urllib.parse.urlencode(
+        {"q": symbol, "quotesCount": 8, "newsCount": 0}
+    )
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "Mitra-Samruddhi-Recovery/1.0",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=12) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    quotes = payload.get("quotes") or []
+    requested = symbol.upper()
+    candidates = [
+        quote
+        for quote in quotes
+        if isinstance(quote, dict)
+        and quote.get("quoteType") in {"EQUITY", "ETF", "INDEX"}
+        and isinstance(quote.get("symbol"), str)
+    ]
+    exact = next(
+        (
+            quote["symbol"]
+            for quote in candidates
+            if quote["symbol"].upper() == requested
+        ),
+        None,
+    )
+    if exact:
+        return exact
+    exchange_qualified = next(
+        (
+            quote["symbol"]
+            for quote in candidates
+            if quote["symbol"].upper().split(".", 1)[0] == requested
+        ),
+        None,
+    )
+    if exchange_qualified:
+        return exchange_qualified
+    raise ValueError(f"Yahoo Finance could not resolve market symbol {symbol}")
+
+
 def _period(horizon: str) -> tuple[str, str]:
     if horizon == "long":
         return "1y", "1d"
@@ -99,7 +146,14 @@ def _period(horizon: str) -> tuple[str, str]:
 
 def _analyze_chart(symbol: str, horizon: str) -> dict[str, Any]:
     range_value, interval = _period(horizon)
-    chart = _fetch_chart(symbol, range_value, interval)
+    resolved_input = symbol
+    try:
+        chart = _fetch_chart(resolved_input, range_value, interval)
+    except HTTPError as exc:
+        if exc.code != 404 or "." in symbol:
+            raise
+        resolved_input = _resolve_symbol(symbol)
+        chart = _fetch_chart(resolved_input, range_value, interval)
     meta = chart.get("meta") or {}
     quote = (((chart.get("indicators") or {}).get("quote") or [{}])[0])
     closes = [
@@ -116,7 +170,7 @@ def _analyze_chart(symbol: str, horizon: str) -> dict[str, Any]:
     confidence = min(0.95, 0.5 + abs(change_pct) / 20)
     return {
         "symbol": symbol,
-        "resolved_symbol": meta.get("symbol") or symbol,
+        "resolved_symbol": meta.get("symbol") or resolved_input,
         "currency": meta.get("currency"),
         "exchange": meta.get("exchangeName"),
         "market_price": round(last, 6),
