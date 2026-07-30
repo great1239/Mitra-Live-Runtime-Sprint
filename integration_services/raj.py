@@ -43,17 +43,25 @@ def create_app(
 
     @app.get("/healthz")
     async def healthz() -> dict[str, Any]:
+        external_transport = (
+            os.environ.get("RAJ_TANTRA_TRANSPORT", "in-process").strip().lower()
+            == "external"
+        )
         return {
             "status": "ok",
             "service": "workflow-executor",
             "version": "1.0.0",
             "execution_mode": (
-                "tantra-capability-runtime"
-                if os.environ.get("RAJ_TANTRA_EXECUTION_URL")
-                else "direct-product-compatibility"
+                "external-tantra-compatibility"
+                if external_transport
+                else "in-chain-tantra-runtime"
             ),
-            "tantra_configured": bool(
-                os.environ.get("RAJ_TANTRA_EXECUTION_URL")
+            "tantra_configured": True,
+            "tantra_transport": (
+                "http" if external_transport else "in-process"
+            ),
+            "capability_runtime_configured": bool(
+                os.environ.get("RAJ_CAPABILITY_RUNTIME_URL")
             ),
         }
 
@@ -80,7 +88,20 @@ def create_app(
                 status_code=422,
                 detail="selected capability contract is required",
             )
-        tantra_url = os.environ.get("RAJ_TANTRA_EXECUTION_URL")
+        external_transport = (
+            os.environ.get("RAJ_TANTRA_TRANSPORT", "in-process").strip().lower()
+            == "external"
+        )
+        tantra_url = (
+            os.environ.get("RAJ_TANTRA_EXECUTION_URL")
+            if external_transport
+            else None
+        )
+        if external_transport and not tantra_url:
+            raise HTTPException(
+                status_code=503,
+                detail="external TANTRA compatibility transport is not configured",
+            )
         if tantra_url:
             tantra_payload = {
                 "trace_id": trace_id,
@@ -135,10 +156,86 @@ def create_app(
             return {
                 **result,
                 "raj": {
-                    "orchestration_mode": "tantra-capability-runtime",
+                    "orchestration_mode": "external-tantra-compatibility",
                     "trace_id": trace_id,
                     "tantra_request_sha256": sha256_bytes(body),
                     "tantra_response_sha256": sha256_bytes(response.content),
+                },
+            }
+
+        runtime_url = os.environ.get("RAJ_CAPABILITY_RUNTIME_URL")
+        if runtime_url:
+            runtime_payload = {
+                "trace_id": trace_id,
+                "action_type": action_type,
+                "capability_contract": contract,
+                "arguments": owner_payload.get("arguments"),
+                "mitra_context": owner_payload.get("mitra_context") or {},
+                "contract_version": "1.0.0",
+                "runtime_version": "1.0.0",
+            }
+            runtime_body = canonical_bytes(runtime_payload)
+            runtime_headers = {
+                "Content-Type": "application/json",
+                "X-Mitra-Trace-ID": trace_id,
+            }
+            runtime_key = os.environ.get("RAJ_CAPABILITY_RUNTIME_API_KEY")
+            if runtime_key:
+                runtime_headers["X-API-Key"] = runtime_key
+            started_at = utc_now()
+            try:
+                async with httpx.AsyncClient(
+                    transport=app.state.transport,
+                    timeout=float(
+                        os.environ.get("RAJ_CAPABILITY_RUNTIME_TIMEOUT", "120")
+                    ),
+                ) as client:
+                    response = await client.post(
+                        urljoin(
+                            runtime_url.rstrip("/") + "/",
+                            "api/v1/capabilities/execute",
+                        ),
+                        content=runtime_body,
+                        headers=runtime_headers,
+                    )
+            except httpx.HTTPError as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "capability runtime transport failed: "
+                        f"{type(exc).__name__}"
+                    ),
+                ) from exc
+            if not 200 <= response.status_code < 300:
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "message": "capability runtime rejected execution",
+                        "http_status": response.status_code,
+                        "body": response.text[:1000],
+                    },
+                )
+            result = response.json()
+            if result.get("trace_id") != trace_id:
+                raise HTTPException(
+                    status_code=502,
+                    detail="capability runtime mutated trace_id",
+                )
+            return {
+                **result,
+                "raj": {
+                    "orchestration_mode": "in-chain-tantra-runtime",
+                    "trace_id": trace_id,
+                },
+                "tantra": {
+                    "boundary_contract": "raj-to-tantra-execution.v1",
+                    "transport": "in-process",
+                    "trace_id": trace_id,
+                    "request_sha256": sha256_bytes(runtime_body),
+                    "response_sha256": sha256_bytes(response.content),
+                    "started_at": started_at,
+                    "completed_at": utc_now(),
+                    "authority": "execution-boundary-only",
                 },
             }
 
@@ -235,9 +332,19 @@ def create_app(
             response_bytes: bytes | None = None,
             response_body: str | None = None,
         ) -> dict[str, Any]:
-            return {
+            result = {
                 "status": "product_error",
                 "trace_id": trace_id,
+                "raj": {
+                    "orchestration_mode": "in-chain-tantra-runtime",
+                    "trace_id": trace_id,
+                },
+                "tantra": {
+                    "boundary_contract": "raj-to-tantra-execution.v1",
+                    "transport": "in-process",
+                    "trace_id": trace_id,
+                    "authority": "execution-boundary-only",
+                },
                 "execution_result": {
                     "success": False,
                     "trace_id": trace_id,
@@ -263,6 +370,7 @@ def create_app(
                     },
                 },
             }
+            return result
 
         try:
             async with httpx.AsyncClient(
@@ -316,6 +424,20 @@ def create_app(
         return {
             "status": "success",
             "trace_id": trace_id,
+            "raj": {
+                "orchestration_mode": "in-chain-tantra-runtime",
+                "trace_id": trace_id,
+            },
+            "tantra": {
+                "boundary_contract": "raj-to-tantra-execution.v1",
+                "transport": "in-process",
+                "trace_id": trace_id,
+                "request_sha256": sha256_bytes(request_bytes),
+                "response_sha256": sha256_bytes(response_bytes),
+                "started_at": started_at,
+                "completed_at": utc_now(),
+                "authority": "execution-boundary-only",
+            },
             "execution_result": {
                 "success": True,
                 "trace_id": trace_id,

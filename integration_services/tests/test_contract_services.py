@@ -156,7 +156,11 @@ def test_prana_retries_transient_forward_gateway_failure(monkeypatch) -> None:
 
 
 def test_raj_dispatches_selected_manifest_without_product_branch(monkeypatch) -> None:
-    monkeypatch.delenv("RAJ_TANTRA_EXECUTION_URL", raising=False)
+    monkeypatch.delenv("RAJ_TANTRA_TRANSPORT", raising=False)
+    monkeypatch.setenv(
+        "RAJ_TANTRA_EXECUTION_URL",
+        "https://obsolete-external-tantra.test",
+    )
     monkeypatch.setenv("RAJ_ENDPOINT_OVERRIDES_JSON", "{}")
     observed: dict[str, object] = {}
 
@@ -210,7 +214,23 @@ def test_raj_dispatches_selected_manifest_without_product_branch(monkeypatch) ->
         },
     )
     assert response.status_code == 200
-    assert response.json()["execution_result"]["success"] is True
+    body = response.json()
+    assert body["execution_result"]["success"] is True
+    assert body["raj"]["orchestration_mode"] == "in-chain-tantra-runtime"
+    assert body["tantra"] == {
+        "authority": "execution-boundary-only",
+        "boundary_contract": "raj-to-tantra-execution.v1",
+        "completed_at": body["tantra"]["completed_at"],
+        "request_sha256": body["tantra"]["request_sha256"],
+        "response_sha256": body["tantra"]["response_sha256"],
+        "started_at": body["tantra"]["started_at"],
+        "trace_id": "trace-raj-1",
+        "transport": "in-process",
+    }
+    health = client.get("/healthz").json()
+    assert health["execution_mode"] == "in-chain-tantra-runtime"
+    assert health["tantra_configured"] is True
+    assert health["tantra_transport"] == "in-process"
     assert observed == {
         "url": "https://product.test/tools/predict",
         "payload": {"horizon": "short", "symbols": ["TCS.NS"]},
@@ -352,6 +372,7 @@ def test_raj_honors_published_envelope_and_secret_header(monkeypatch) -> None:
 
 
 def test_raj_routes_through_tantra_and_universal_runtime(monkeypatch) -> None:
+    monkeypatch.setenv("RAJ_TANTRA_TRANSPORT", "external")
     monkeypatch.setenv("RAJ_TANTRA_EXECUTION_URL", "https://tantra.test")
     monkeypatch.setenv(
         "UNIVERSAL_CAPABILITY_RUNTIME_URL",
@@ -447,7 +468,7 @@ def test_raj_routes_through_tantra_and_universal_runtime(monkeypatch) -> None:
     body = response.json()
     assert body["execution_result"]["success"] is True
     assert body["raj"]["orchestration_mode"] == (
-        "tantra-capability-runtime"
+        "external-tantra-compatibility"
     )
     assert body["tantra"]["boundary_contract"] == (
         "raj-to-tantra-execution.v1"
@@ -460,6 +481,75 @@ def test_raj_routes_through_tantra_and_universal_runtime(monkeypatch) -> None:
             "payload": {"symbols": ["AAPL"]},
         }
     ]
+
+
+def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("RAJ_TANTRA_TRANSPORT", raising=False)
+    monkeypatch.setenv(
+        "RAJ_CAPABILITY_RUNTIME_URL",
+        "https://runtime.test",
+    )
+    observed: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed["url"] = str(request.url)
+        observed["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "status": "success",
+                "trace_id": "trace-in-chain",
+                "runtime": {"service": "universal-capability-runtime"},
+                "execution_result": {"success": True},
+            },
+        )
+
+    app = create_raj(transport=httpx.MockTransport(handler))
+    response = TestClient(app).post(
+        "/api/workflow/execute",
+        json={
+            "trace_id": "trace-in-chain",
+            "decision": "workflow",
+            "data": {
+                "workflow_type": "workflow",
+                "payload": {
+                    "action_type": "task",
+                    "mitra_context": {
+                        "execution_id": "eco-in-chain",
+                        "capability_contract": {
+                            "product": {
+                                "product_id": "trade-bot",
+                                "base_url": "https://product.test",
+                            },
+                            "capability": {
+                                "capability_id": "market-prediction"
+                            },
+                            "intent": {
+                                "intent_id": "trade.predict",
+                                "dispatch": {
+                                    "mode": "http",
+                                    "endpoint": "/tools/predict",
+                                },
+                            },
+                            "input": {"payload": {"symbols": ["AAPL"]}},
+                        },
+                    },
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert observed["url"] == (
+        "https://runtime.test/api/v1/capabilities/execute"
+    )
+    assert observed["payload"]["trace_id"] == "trace-in-chain"
+    assert body["raj"]["orchestration_mode"] == "in-chain-tantra-runtime"
+    assert body["tantra"]["transport"] == "in-process"
+    assert body["runtime"]["service"] == "universal-capability-runtime"
 
 
 def test_insightflow_bridge_registers_dataset_and_provenance(monkeypatch) -> None:
