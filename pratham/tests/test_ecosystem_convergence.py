@@ -21,6 +21,7 @@ from mitra_companion.ecosystem import EcosystemReplayLedger
 from mitra_companion.errors import (
     EcosystemConfigurationError,
     EcosystemIntegrationError,
+    ResourceConflictError,
 )
 from mitra_companion.runtime import CompanionRuntime
 from mitra_companion.utils import sha256_json
@@ -820,6 +821,43 @@ async def test_recovery_resumes_at_failed_stage_without_repeating_owners(
         "FAILED",
         "COMPLETED",
     ]
+
+
+def test_running_stage_lease_rejects_overlapping_recovery(
+    settings_factory,
+):
+    environment = ContractEnvironment()
+    runtime = _configured_runtime(settings_factory, environment)
+    execution_id = "eco_active_stage_lease"
+    try:
+        runtime.store.create_ecosystem_execution(
+            execution_id=execution_id,
+            idempotency_key="active-stage-lease",
+            trace_id="active-stage-trace",
+            session_id=None,
+            actor_id="lease-test",
+            request=_request().model_dump(mode="json"),
+            runtime_instance_id="lease-test-runtime",
+        )
+        runtime.store.begin_ecosystem_stage(
+            execution_id=execution_id,
+            stage_name="ashmit-provenance",
+            stage_index=5,
+            request={"trace_id": "active-stage-trace"},
+        )
+
+        with pytest.raises(
+            ResourceConflictError,
+            match="already active",
+        ):
+            runtime.store.begin_ecosystem_stage(
+                execution_id=execution_id,
+                stage_name="ashmit-provenance",
+                stage_index=5,
+                request={"trace_id": "active-stage-trace"},
+            )
+    finally:
+        runtime.stop()
 
 
 @pytest.mark.asyncio

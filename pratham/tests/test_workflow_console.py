@@ -15,6 +15,8 @@ def test_workflow_console_exposes_live_execution_surface(settings_factory):
     assert "/api/v1/ecosystem/executions?limit=50" in response.text
     assert "/recover" in response.text
     assert "Resuming from checkpoint after hosting timeout" in response.text
+    assert "RECOVERY_STALE_AFTER_MS = 330000" in response.text
+    assert "currentStage?.started_at" in response.text
     assert "karma-integrity" in response.text
     assert "central-depository" in response.text
     assert "JSON.stringify(output, null, 2)" in response.text

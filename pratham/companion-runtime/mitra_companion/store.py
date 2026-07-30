@@ -15,6 +15,7 @@ from .utils import sha256_json, utc_now
 
 
 _POSTGRES_SCHEMA_VERSION = 1
+_ECOSYSTEM_STAGE_LEASE_SECONDS = 330
 
 
 class _PostgresConnection:
@@ -1846,6 +1847,16 @@ class RuntimeStore:
                     connection.execute("COMMIT")
                     decoded = self._decode_ecosystem_stage(existing)
                     return {**(decoded or {}), "already_completed": True}
+                if existing is not None and existing["status"] == "RUNNING":
+                    started_at = datetime.fromisoformat(
+                        str(existing["started_at"])
+                    )
+                    if datetime.now(UTC) - started_at < timedelta(
+                        seconds=_ECOSYSTEM_STAGE_LEASE_SECONDS
+                    ):
+                        raise ResourceConflictError(
+                            "Ecosystem stage execution is already active"
+                        )
                 attempts = int(existing["attempts"] if existing else 0) + 1
                 connection.execute(
                     """

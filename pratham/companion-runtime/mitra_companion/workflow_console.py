@@ -276,6 +276,7 @@ let pollTimer = null;
 let activeKey = null;
 let recoveryInFlight = false;
 let lastRecoveryAt = 0;
+const RECOVERY_STALE_AFTER_MS = 330000;
 
 const requestInput = document.getElementById("request");
 const runButton = document.getElementById("run");
@@ -410,13 +411,24 @@ async function pollExecution() {
     if (!result.ok) throw new Error(`Execution detail returned HTTP ${result.status}`);
     const detail = await result.json();
     updateExecution(detail);
-    const execution = normalizeDetail(detail).execution;
-    const updatedAt = Date.parse(execution.updated_at || "");
-    const staleForMs = Number.isFinite(updatedAt) ? Date.now() - updatedAt : 0;
+    const normalized = normalizeDetail(detail);
+    const execution = normalized.execution;
+    const currentStage = normalized.stages.find(
+      item => item.stage_name === execution.current_stage
+    );
+    const progressTimes = [
+      execution.updated_at,
+      currentStage?.started_at,
+      currentStage?.finished_at
+    ].map(value => Date.parse(value || "")).filter(Number.isFinite);
+    const lastProgressAt = progressTimes.length
+      ? Math.max(...progressTimes)
+      : Date.now();
+    const staleForMs = Date.now() - lastProgressAt;
     const recoveryReady =
       String(execution.status).toUpperCase() === "RUNNING" &&
-      staleForMs > 20000 &&
-      Date.now() - lastRecoveryAt > 30000 &&
+      staleForMs > RECOVERY_STALE_AFTER_MS &&
+      Date.now() - lastRecoveryAt > RECOVERY_STALE_AFTER_MS &&
       !recoveryInFlight;
     if (recoveryReady) {
       recoveryInFlight = true;
