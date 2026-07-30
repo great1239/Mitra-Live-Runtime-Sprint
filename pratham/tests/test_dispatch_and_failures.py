@@ -90,7 +90,7 @@ async def test_loopback_dispatch_receives_only_declared_context(
 
 
 @pytest.mark.asyncio
-async def test_cross_product_dispatch_requires_transfer(
+async def test_cross_product_dispatch_switches_product_in_same_session(
     runtime,
     atlas_manifest,
     nova_manifest,
@@ -103,15 +103,24 @@ async def test_cross_product_dispatch_requires_transfer(
         workspace_id="atlas",
         product_id="atlas-workspace",
     )
-    with pytest.raises(ResourceConflictError):
-        await runtime.dispatch(
-            IntentDispatchRequest(
-                session_id=session["session_id"],
-                product_id="nova-operations",
-                intent_id="operations.show-status",
-                payload={"resource_id": "worker-1"},
-            )
+    result = await runtime.dispatch(
+        IntentDispatchRequest(
+            session_id=session["session_id"],
+            product_id="nova-operations",
+            intent_id="operations.show-status",
+            payload={"resource_id": "worker-1"},
         )
+    )
+
+    updated = runtime.sessions.get(session["session_id"])
+    assert result["dispatch"]["status"] == "COMPLETED"
+    assert result["dispatch"]["session_id"] == session["session_id"]
+    assert updated["session_id"] == session["session_id"]
+    assert updated["active_product_id"] == "nova-operations"
+    assert updated["metadata"]["product_history"] == [
+        "atlas-workspace",
+        "nova-operations",
+    ]
 
 
 @pytest.mark.asyncio

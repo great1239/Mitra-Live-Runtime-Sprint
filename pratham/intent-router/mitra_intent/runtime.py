@@ -210,14 +210,6 @@ class IntentRouter:
             raise IntentRoutingError(
                 "A product_id is required when the session has no active product"
             )
-        if (
-            session["active_product_id"]
-            and target_product != session["active_product_id"]
-        ):
-            raise ResourceConflictError(
-                "Cross-product dispatch requires an explicit context transfer"
-            )
-
         if capability_id:
             self.lookup_capability(
                 product_id=target_product,

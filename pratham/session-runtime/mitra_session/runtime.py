@@ -80,6 +80,20 @@ class SessionRuntime:
             SessionState.CLOSED,
         )
 
+    def activate_product(
+        self,
+        session_id: str,
+        product_id: str,
+    ) -> dict[str, Any]:
+        session = self.get(session_id)
+        if session["state"] != SessionState.ACTIVE.value:
+            raise ResourceConflictError(
+                "Only active sessions can switch products"
+            )
+        if session.get("active_product_id") == product_id:
+            return session
+        return self.store.set_session_active_product(session_id, product_id)
+
     def transfer(
         self,
         *,

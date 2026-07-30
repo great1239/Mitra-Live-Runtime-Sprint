@@ -1082,6 +1082,50 @@ class RuntimeStore:
                 raise KeyError(session_id)
         return self.get_session(session_id) or {}
 
+    def set_session_active_product(
+        self,
+        session_id: str,
+        product_id: str,
+    ) -> dict[str, Any]:
+        now = utc_now()
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT active_product_id, metadata_json
+                FROM sessions WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(session_id)
+            previous_product_id = row["active_product_id"]
+            metadata = json.loads(row["metadata_json"])
+            history = list(metadata.get("product_history") or [])
+            for value in (previous_product_id, product_id):
+                if value and value not in history:
+                    history.append(value)
+            metadata["product_history"] = history
+            metadata["last_product_transition"] = {
+                "from_product_id": previous_product_id,
+                "to_product_id": product_id,
+                "occurred_at": now,
+                "mode": "same-session-context-switch",
+            }
+            connection.execute(
+                """
+                UPDATE sessions
+                SET active_product_id = ?, metadata_json = ?, updated_at = ?
+                WHERE session_id = ?
+                """,
+                (
+                    product_id,
+                    json.dumps(metadata, sort_keys=True, ensure_ascii=False),
+                    now,
+                    session_id,
+                ),
+            )
+        return self.get_session(session_id) or {}
+
     def list_sessions(self, limit: int = 100) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(

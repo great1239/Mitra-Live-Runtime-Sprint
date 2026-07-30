@@ -779,6 +779,31 @@ class CompanionRuntime:
         )
         return {**transfer, "context": context}
 
+    def activate_session_product(
+        self,
+        session_id: str,
+        product_id: str,
+    ) -> dict[str, Any]:
+        self.attachments.get(product_id)
+        before = self.sessions.get(session_id)
+        session = self.sessions.activate_product(session_id, product_id)
+        switched = before.get("active_product_id") != product_id
+        if switched:
+            self.telemetry.record_event(
+                "session.product_activated",
+                session_id=session_id,
+                from_product_id=before.get("active_product_id"),
+                to_product_id=product_id,
+                runtime_instance_id=self.instance_id,
+            )
+        return {
+            "session": session,
+            "context": self.context.load(session_id),
+            "switched": switched,
+            "runtime_instance_id": self.instance_id,
+            "continuity_mode": "same-session-isolated-product-context",
+        }
+
     def create_product_exchange(
         self,
         request: ProductExchangeRequest,
@@ -903,6 +928,11 @@ class CompanionRuntime:
     ) -> dict[str, Any]:
         if not self.accepting:
             raise RuntimeError("Runtime is not accepting dispatches")
+        if request.product_id:
+            self.activate_session_product(
+                request.session_id,
+                request.product_id,
+            )
         route = self.router.route(
             session_id=request.session_id,
             intent_id=request.intent_id,
@@ -1648,7 +1678,7 @@ class CompanionRuntime:
             },
         )
 
-        candidate_product = request.product_id or session.get("active_product_id")
+        candidate_product = request.product_id
         candidates = self.router.discover(
             product_id=candidate_product,
             capability_id=request.capability_id,
@@ -1959,8 +1989,7 @@ class CompanionRuntime:
             else {}
         )
         candidates = self.router.discover(
-            product_id=request.product_id
-            or session.get("active_product_id"),
+            product_id=request.product_id,
             capability_id=request.capability_id,
             available_only=False,
         )
@@ -2036,6 +2065,10 @@ class CompanionRuntime:
                 "The selected ecosystem capability did not resolve uniquely"
             )
         candidate = matches[0]
+        session = self.activate_session_product(
+            session["session_id"],
+            candidate["product_id"],
+        )["session"]
         attachment = self.attachments.get(candidate["product_id"])
         manifest = attachment["manifest"]
         product_payload = {
@@ -2652,15 +2685,11 @@ class CompanionRuntime:
                 raise ResourceConflictError(
                     "The request workspace does not match the selected session"
                 )
-            active_product = session.get("active_product_id")
-            if (
-                request.product_id
-                and active_product
-                and request.product_id != active_product
-            ):
-                raise ResourceConflictError(
-                    "Cross-product ecosystem execution requires context transfer"
-                )
+            if request.product_id:
+                session = self.activate_session_product(
+                    session["session_id"],
+                    request.product_id,
+                )["session"]
             return session
         if not request.actor_id or not request.workspace_id:
             raise IntentRoutingError(

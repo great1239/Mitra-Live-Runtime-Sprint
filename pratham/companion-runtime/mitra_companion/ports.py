@@ -66,6 +66,12 @@ class SessionStorePort(Protocol):
         state: Any,
     ) -> dict[str, Any]: ...
 
+    def set_session_active_product(
+        self,
+        session_id: str,
+        product_id: str,
+    ) -> dict[str, Any]: ...
+
     def record_transfer(self, **values: Any) -> dict[str, Any]: ...
 
 

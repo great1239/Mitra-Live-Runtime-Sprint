@@ -232,6 +232,8 @@ let currentExecution = null;
 let selectedStage = stageDefinitions[0][0];
 let pollTimer = null;
 let activeKey = null;
+let recoveryInFlight = false;
+let lastRecoveryAt = 0;
 
 const requestInput = document.getElementById("request");
 const runButton = document.getElementById("run");
@@ -345,7 +347,44 @@ async function pollExecution() {
     if (!summary?.execution_id) return;
     const result = await fetch(`/api/v1/ecosystem/executions/${summary.execution_id}`);
     if (!result.ok) throw new Error(`Execution detail returned HTTP ${result.status}`);
-    updateExecution(await result.json());
+    const detail = await result.json();
+    updateExecution(detail);
+    const execution = normalizeDetail(detail).execution;
+    const updatedAt = Date.parse(execution.updated_at || "");
+    const staleForMs = Number.isFinite(updatedAt) ? Date.now() - updatedAt : 0;
+    const recoveryReady =
+      String(execution.status).toUpperCase() === "RUNNING" &&
+      staleForMs > 20000 &&
+      Date.now() - lastRecoveryAt > 30000 &&
+      !recoveryInFlight;
+    if (recoveryReady) {
+      recoveryInFlight = true;
+      lastRecoveryAt = Date.now();
+      document.getElementById("request-meta").innerHTML =
+        `Execution <code>${execution.execution_id}</code><br>` +
+        `Resuming from checkpoint after hosting timeout`;
+      fetch(
+        `/api/v1/ecosystem/executions/${execution.execution_id}/recover`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            schema_version: "1.0.0",
+            contract_version: "1.0.0"
+          })
+        }
+      ).then(async recovery => {
+        if (!recovery.ok) {
+          throw new Error(`Recovery returned HTTP ${recovery.status}`);
+        }
+        updateExecution(await recovery.json());
+      }).catch(error => {
+        document.getElementById("request-meta").textContent =
+          `Recovery connection ended: ${error.message}. Retrying from the persisted checkpoint.`;
+      }).finally(() => {
+        recoveryInFlight = false;
+      });
+    }
   } catch (error) {
     document.getElementById("request-meta").textContent =
       `Polling error: ${error.message}. Retrying automatically.`;
@@ -360,6 +399,8 @@ async function runWorkflow() {
   }
   activeKey = `temp-console-${Date.now()}-${crypto.randomUUID()}`;
   currentExecution = null;
+  recoveryInFlight = false;
+  lastRecoveryAt = 0;
   selectedStage = stageDefinitions[0][0];
   runButton.disabled = true;
   stateBox.textContent = "SUBMITTING";

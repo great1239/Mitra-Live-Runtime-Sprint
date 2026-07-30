@@ -1506,6 +1506,17 @@ def create_app(
             **companion.transfer_context(session_id, request)
         )
 
+    @app.post(
+        "/api/v1/sessions/{session_id}/products/{product_id}/activate"
+    )
+    async def activate_session_product(
+        session_id: str,
+        product_id: str,
+    ) -> dict:
+        return versioned_response(
+            **companion.activate_session_product(session_id, product_id)
+        )
+
     @app.post("/api/v1/attachments", status_code=201)
     async def attach_product(request: AttachmentRequest) -> dict:
         validate_contract(request)
