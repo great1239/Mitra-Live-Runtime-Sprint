@@ -527,12 +527,15 @@ class PublishedEcosystemClient:
                 and str(raj_health.get("status", "")).lower() == "ok"
                 and raj_health.get("service") == "workflow-executor"
                 and raj_health.get("execution_mode")
-                == "tantra-capability-runtime"
+                in {
+                    "in-chain-tantra-runtime",
+                    "tantra-capability-runtime",
+                }
                 and raj_health.get("tantra_configured") is True
             ):
                 reject_probe(
                     raj_check,
-                    "Raj is not configured for the TANTRA capability-runtime path",
+                    "Raj is not configured for the in-chain TANTRA runtime",
                 )
 
         keshav_check = checks_by_module.get("keshav")

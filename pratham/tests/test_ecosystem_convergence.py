@@ -113,8 +113,9 @@ class ContractEnvironment:
                 json={
                     "status": "ok",
                     "service": "workflow-executor",
-                    "execution_mode": "tantra-capability-runtime",
+                    "execution_mode": "in-chain-tantra-runtime",
                     "tantra_configured": True,
+                    "tantra_transport": "in-process",
                 },
             )
         if host == "keshav.test" and path == "/health":
