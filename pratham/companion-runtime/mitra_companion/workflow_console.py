@@ -105,17 +105,31 @@ def workflow_console_html() -> str:
     .run-state.running { color:var(--blue); background:var(--blue-soft); }
     .run-state.completed { color:var(--green); background:var(--green-soft); }
     .run-state.failed { color:var(--red); background:var(--red-soft); }
-    .stage-rail {
+    .stage-rail { display:grid; gap:0; border-bottom:1px solid var(--line); }
+    .stage-group { min-width:0; border-bottom:1px solid var(--line); }
+    .stage-group:last-child { border-bottom:0; }
+    .stage-group-head {
+      min-height:54px; padding:10px 14px; display:flex; align-items:center;
+      justify-content:space-between; gap:14px; border-bottom:1px solid var(--line);
+      background:#f6f8f7;
+    }
+    .stage-group-title { display:block; font-size:12px; font-weight:900; }
+    .stage-group-purpose { color:var(--muted); font-size:11px; }
+    .stage-group-flow {
+      flex:0 0 auto; color:#456157; font-size:10px; font-weight:850;
+      text-transform:uppercase;
+    }
+    .stage-group.tantra .stage-group-head {
+      background:#eef4ff; box-shadow:inset 4px 0 0 var(--blue);
+    }
+    .stage-group-grid {
       display:grid; grid-template-columns:repeat(5, minmax(120px, 1fr));
-      border-bottom:1px solid var(--line);
     }
     .stage {
       min-height:112px; padding:14px; border:0; border-right:1px solid var(--line);
-      border-bottom:1px solid var(--line); background:white; text-align:left;
-      position:relative;
+      background:white; text-align:left; position:relative;
     }
-    .stage:nth-child(5n) { border-right:0; }
-    .stage:nth-child(n+6) { border-bottom:0; }
+    .stage:last-child { border-right:0; }
     .stage:hover, .stage.selected { background:#f7faf8; }
     .stage.selected { box-shadow:inset 0 -3px 0 var(--blue); }
     .stage-index { color:#89958f; font-size:10px; font-weight:850; }
@@ -147,21 +161,22 @@ def workflow_console_html() -> str:
     @media (max-width:1000px) {
       .workspace { grid-template-columns:1fr; }
       .composer { border-right:0; border-bottom:1px solid var(--line); }
-      .stage-rail { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
-      .stage:nth-child(5n) { border-right:1px solid var(--line); }
+      .stage-group-grid { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .stage { border-bottom:1px solid var(--line); }
       .stage:nth-child(2n) { border-right:0; }
-      .stage:nth-child(n+6) { border-bottom:1px solid var(--line); }
-      .stage:nth-child(n+9) { border-bottom:0; }
+      .stage-group-grid .stage:nth-last-child(-n+2) { border-bottom:0; }
     }
     @media (max-width:620px) {
       .bar, main { padding-left:14px; padding-right:14px; }
       .intro { align-items:flex-start; flex-direction:column; }
       .links { white-space:normal; }
-      .stage-rail { grid-template-columns:1fr; }
-      .stage, .stage:nth-child(5n), .stage:nth-child(2n), .stage:nth-child(n+9) {
+      .stage-group-head { align-items:flex-start; flex-direction:column; }
+      .stage-group-grid { grid-template-columns:1fr; }
+      .stage, .stage:nth-child(2n) {
         border-right:0; border-bottom:1px solid var(--line);
       }
-      .stage:last-child { border-bottom:0; }
+      .stage-group-grid .stage:nth-last-child(-n+2) { border-bottom:1px solid var(--line); }
+      .stage-group-grid .stage:last-child { border-bottom:0; }
       .visual-head { align-items:flex-start; flex-direction:column; }
     }
   </style>
@@ -176,8 +191,8 @@ def workflow_console_html() -> str:
 <main>
   <div class="intro">
     <div><h1>Watch a request move through the ecosystem</h1>
-      <p>Submit a natural request. Mitra selects the capability, records every
-      owner response, and exposes the persisted execution as it progresses.</p>
+      <p>Submit a natural request. Mitra selects the capability, Raj orchestrates
+      the workflow, and TANTRA executes the downstream runtime chain.</p>
     </div>
     <div class="links"><a href="/">Dashboard</a> &nbsp;|&nbsp;
       <a href="/docs">OpenAPI</a></div>
@@ -218,15 +233,42 @@ def workflow_console_html() -> str:
 <script>
 const stageDefinitions = [
   ["capability-selection", "Capability selection", "Mitra"],
-  ["dependency-preflight", "Dependency preflight", "Mitra + owners"],
+  ["dependency-preflight", "Dependency preflight", "Mitra"],
   ["raj-execution", "Workflow execution", "Raj"],
-  ["keshav-diagnosis", "Conditional diagnosis", "BHIV / KESHAV"],
-  ["ashmit-provenance", "Provenance acceptance", "BHIV / Ashmit"],
-  ["bucket-truth", "Artifact storage", "BHIV / Bucket"],
-  ["karma-integrity", "Integrity append", "BHIV / Karma"],
-  ["prana-forwarding", "Strict forwarding", "BHIV / PRANA"],
-  ["insightflow-telemetry", "Telemetry record", "BHIV / InsightFlow"],
-  ["central-depository", "Handover package", "BHIV / Central Depository"]
+  ["keshav-diagnosis", "Conditional diagnosis", "TANTRA / KESHAV"],
+  ["ashmit-provenance", "Provenance acceptance", "TANTRA / Ashmit"],
+  ["bucket-truth", "Artifact storage", "TANTRA / Bucket"],
+  ["karma-integrity", "Integrity append", "TANTRA / Karma"],
+  ["prana-forwarding", "Strict forwarding", "TANTRA / PRANA"],
+  ["insightflow-telemetry", "Telemetry record", "TANTRA / InsightFlow"],
+  ["central-depository", "Handover package", "TANTRA / Central Depository"]
+];
+const workflowDomains = [
+  {
+    id: "mitra",
+    title: "MITRA Coordinator",
+    purpose: "Natural request intake and manifest-driven capability selection",
+    handoff: "Hands selected capability to Raj",
+    stages: ["capability-selection", "dependency-preflight"]
+  },
+  {
+    id: "raj",
+    title: "Raj Orchestrator",
+    purpose: "Executes the selected product workflow through its published contract",
+    handoff: "Hands execution result to TANTRA",
+    stages: ["raj-execution"]
+  },
+  {
+    id: "tantra",
+    title: "TANTRA Execution Runtime",
+    purpose: "Owns the post-Raj constitutional and operational execution chain",
+    handoff: "KESHAV -> Ashmit -> Bucket -> Karma -> PRANA -> InsightFlow -> Depository",
+    stages: [
+      "keshav-diagnosis", "ashmit-provenance", "bucket-truth",
+      "karma-integrity", "prana-forwarding", "insightflow-telemetry",
+      "central-depository"
+    ]
+  }
 ];
 let currentExecution = null;
 let selectedStage = stageDefinitions[0][0];
@@ -259,6 +301,25 @@ function renderStages() {
       <span class="stage-name">${label}</span>
       <span class="stage-owner">${owner} · ${status.toUpperCase()}</span>
     </button>`;
+  }).join("");
+  const stageMarkup = new Map(
+    [...rail.querySelectorAll(".stage")].map(button => [
+      button.dataset.stage,
+      button.outerHTML
+    ])
+  );
+  rail.innerHTML = workflowDomains.map(domain => {
+    const domainStages = domain.stages
+      .map(stageId => stageMarkup.get(stageId) || "")
+      .join("");
+    return `<section class="stage-group ${domain.id}" aria-label="${domain.title}">
+      <div class="stage-group-head">
+        <div><span class="stage-group-title">${domain.title}</span>
+          <span class="stage-group-purpose">${domain.purpose}</span></div>
+        <span class="stage-group-flow">${domain.handoff}</span>
+      </div>
+      <div class="stage-group-grid">${domainStages}</div>
+    </section>`;
   }).join("");
   rail.querySelectorAll(".stage").forEach(button => {
     button.addEventListener("click", () => {
