@@ -1041,6 +1041,23 @@ class RuntimeStore:
             ).fetchone()
         return self._decode_session(row)
 
+    def get_active_continuity_session(
+        self,
+        actor_id: str,
+        workspace_id: str,
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM sessions
+                WHERE actor_id = ? AND workspace_id = ? AND state = ?
+                ORDER BY updated_at DESC, created_at DESC
+                LIMIT 1
+                """,
+                (actor_id, workspace_id, SessionState.ACTIVE.value),
+            ).fetchone()
+        return self._decode_session(row)
+
     def get_session_token_hash(self, session_id: str) -> str | None:
         with self.connection() as connection:
             row = connection.execute(

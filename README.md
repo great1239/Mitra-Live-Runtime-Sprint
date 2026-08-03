@@ -40,6 +40,16 @@ Companion auto-dispatch and the frontend workflow connector use the same strict
 ecosystem coordinator. Direct product dispatch is an internal transport
 primitive, not an alternate user execution path.
 
+## Cross-Product Continuity
+
+When `session_id` is omitted, MITRA resolves the latest active session for the
+same `actor_id` and `workspace_id`; it creates a session only when none exists.
+Opening Samruddhi and then SETU therefore switches `active_product_id` on one
+session while preserving its runtime lineage, shared context, execution
+history, conversation memory, and companion identity. Session and workspace
+context remain continuous. Product-private context remains partitioned and is
+restored when that product is active again.
+
 The complete local topology was rebuilt and validated on 2026-07-20. The
 canonical three-case run completed all ten persisted stages per execution,
 recorded six dependency preflights, and reconstructed each execution from

@@ -2653,7 +2653,7 @@ class CompanionRuntime:
             )
         if request.product_id:
             self.attachments.get(request.product_id)
-        return self.sessions.create(
+        return self.sessions.resolve_continuity(
             actor_id=request.actor_id,
             client_type=request.client_type,
             workspace_id=request.workspace_id,
@@ -2698,7 +2698,7 @@ class CompanionRuntime:
             )
         if request.product_id:
             self.attachments.get(request.product_id)
-        return self.sessions.create(
+        return self.sessions.resolve_continuity(
             actor_id=request.actor_id,
             client_type=request.client_type,
             workspace_id=request.workspace_id,

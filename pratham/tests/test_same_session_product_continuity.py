@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from mitra_companion.contracts import ProductAttachmentManifest
+from mitra_companion.contracts import CompanionMessageRequest
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -117,3 +120,67 @@ def test_production_products_share_session_context_and_runtime(runtime):
 
     final_session = runtime.sessions.get(session_id)
     assert final_session["metadata"]["product_history"] == product_ids
+
+
+@pytest.mark.asyncio
+async def test_product_apps_resolve_one_existing_companion_session(runtime):
+    for name in (
+        "product-samruddhi-trade-bot.json",
+        "product-setu-ai-crm.json",
+    ):
+        runtime.attach(_production_manifest(name))
+
+    actor_id = "cross-app-continuity-user"
+    workspace_id = "cross-app-continuity-workspace"
+    runtime_id = runtime.instance_id
+    samruddhi = await runtime.companion_message(
+        CompanionMessageRequest(
+            actor_id=actor_id,
+            workspace_id=workspace_id,
+            client_type="standalone",
+            product_id="samruddhi-trade-bot",
+            capability_id="market-prediction",
+            message="Show AAPL stock",
+            payload={"symbols": ["AAPL"]},
+            auto_dispatch=False,
+        )
+    )
+    session_id = samruddhi["session"]["session_id"]
+    runtime.context.update(
+        session_id=session_id,
+        scope="session",
+        patch={"conversation_goal": "continue across products"},
+        expected_revision=None,
+        replace=False,
+    )
+
+    setu = await runtime.companion_message(
+        CompanionMessageRequest(
+            actor_id=actor_id,
+            workspace_id=workspace_id,
+            client_type="embedded",
+            product_id="setu-ai-crm",
+            capability_id="crm-operations",
+            message="Show low-stock inventory",
+            payload={"query": "Show low-stock inventory"},
+            auto_dispatch=False,
+        )
+    )
+
+    assert setu["session"]["session_id"] == session_id
+    assert runtime.store.counts()["sessions"] == 1
+    assert runtime.instance_id == runtime_id
+    assert runtime.context.load(session_id)["merged"]["conversation_goal"] == (
+        "continue across products"
+    )
+    assert runtime.sessions.get(session_id)["metadata"]["product_history"] == [
+        "samruddhi-trade-bot",
+        "setu-ai-crm",
+    ]
+    assert len(runtime.companion_memory(session_id)["messages"]) == 4
+    identity = runtime.companion_identity(actor_id)
+    assert identity["profile"]["session_history"] == [session_id]
+    assert identity["profile"]["product_history"] == [
+        "samruddhi-trade-bot",
+        "setu-ai-crm",
+    ]

@@ -49,6 +49,31 @@ class SessionRuntime:
             raise ResourceNotFoundError(f"Unknown session: {session_id}")
         return session
 
+    def resolve_continuity(
+        self,
+        *,
+        actor_id: str,
+        workspace_id: str,
+        client_type: str,
+        product_id: str | None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        session = self.store.get_active_continuity_session(
+            actor_id,
+            workspace_id,
+        )
+        if session is None:
+            return self.create(
+                actor_id=actor_id,
+                client_type=client_type,
+                workspace_id=workspace_id,
+                product_id=product_id,
+                metadata=metadata,
+            )
+        if product_id and session.get("active_product_id") != product_id:
+            return self.activate_product(session["session_id"], product_id)
+        return session
+
     def resume(self, session_id: str, resume_token: str) -> dict[str, Any]:
         stored_hash = self.store.get_session_token_hash(session_id)
         if stored_hash is None:
