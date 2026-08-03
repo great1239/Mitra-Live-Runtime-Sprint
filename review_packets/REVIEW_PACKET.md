@@ -415,7 +415,7 @@ Observed from the 2026-07-20 rebuilt topology:
 - The complete `pratham/tests`, `contracts/integration-tests`, and
   `integration_services/tests` run passed all 161 tests on 2026-07-23.
 - With explicit publication approval, the public BHIV Bucket accepted minimal
-  validation artifacts for Samruddhi UniGuru
+  validation artifacts for UniGuru
   (`73d4ceca69b2c23b0c9d00dabbd4056185521a62df190dd34235d3a8f2794c7e`)
   and Samruddhi Trade Bot
   (`e1b403520b8078dc445ddbee9cf86e889089fc1c921fe8c09fb2e612ce1e6e5c`)
