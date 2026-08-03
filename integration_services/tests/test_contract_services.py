@@ -384,8 +384,11 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
     observed: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
+        observed["calls"] = observed.get("calls", 0) + 1
         observed["url"] = str(request.url)
         observed["payload"] = json.loads(request.content)
+        if observed["calls"] == 1:
+            return httpx.Response(503, json={"detail": "runtime starting"})
         return httpx.Response(
             200,
             json={
@@ -463,6 +466,13 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
     assert body["canonical_runtime_execution"]["execution_id"] == (
         "ucr-exec-1"
     )
+    assert observed["calls"] == 2
+    assert [
+        attempt["http_status"]
+        for attempt in body["canonical_runtime_execution"][
+            "transport_attempts"
+        ]
+    ] == [503, 200]
 
 
 def test_insightflow_bridge_registers_dataset_and_provenance(monkeypatch) -> None:

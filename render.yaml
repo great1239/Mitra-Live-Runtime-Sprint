@@ -57,6 +57,8 @@ services:
           envVarKey: CAPABILITY_RUNTIME_API_KEY
       - key: RAJ_CAPABILITY_RUNTIME_TIMEOUT
         value: "150"
+      - key: RAJ_CAPABILITY_RUNTIME_ATTEMPTS
+        value: "3"
 
   - type: web
     name: pratham-mitra-karma-integrity

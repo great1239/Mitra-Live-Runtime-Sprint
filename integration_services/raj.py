@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any
@@ -192,29 +193,72 @@ def create_app(
             if runtime_key:
                 runtime_headers["X-API-Key"] = runtime_key
             started_at = utc_now()
-            try:
-                async with httpx.AsyncClient(
-                    transport=app.state.transport,
-                    timeout=float(
-                        os.environ.get("RAJ_CAPABILITY_RUNTIME_TIMEOUT", "120")
-                    ),
-                ) as client:
-                    response = await client.post(
-                        urljoin(
-                            runtime_url.rstrip("/") + "/",
-                            "api/capabilities/mitra-remote-product-v1/execute",
-                        ),
-                        content=owner_runtime_body,
-                        headers=runtime_headers,
-                    )
-            except httpx.HTTPError as exc:
+            max_attempts = max(
+                1,
+                int(os.environ.get("RAJ_CAPABILITY_RUNTIME_ATTEMPTS", "3")),
+            )
+            retry_statuses = {502, 503, 504}
+            attempts: list[dict[str, Any]] = []
+            response: httpx.Response | None = None
+            async with httpx.AsyncClient(
+                transport=app.state.transport,
+                timeout=float(
+                    os.environ.get("RAJ_CAPABILITY_RUNTIME_TIMEOUT", "150")
+                ),
+            ) as client:
+                for attempt in range(1, max_attempts + 1):
+                    attempt_started = utc_now()
+                    try:
+                        response = await client.post(
+                            urljoin(
+                                runtime_url.rstrip("/") + "/",
+                                "api/capabilities/mitra-remote-product-v1/execute",
+                            ),
+                            content=owner_runtime_body,
+                            headers=runtime_headers,
+                        )
+                    except httpx.HTTPError as exc:
+                        attempts.append(
+                            {
+                                "attempt": attempt,
+                                "started_at": attempt_started,
+                                "completed_at": utc_now(),
+                                "http_status": None,
+                                "error": type(exc).__name__,
+                            }
+                        )
+                        if attempt >= max_attempts:
+                            raise HTTPException(
+                                status_code=502,
+                                detail={
+                                    "message": "capability runtime transport failed",
+                                    "attempts": attempts,
+                                },
+                            ) from exc
+                    else:
+                        attempts.append(
+                            {
+                                "attempt": attempt,
+                                "started_at": attempt_started,
+                                "completed_at": utc_now(),
+                                "http_status": response.status_code,
+                                "error": None,
+                            }
+                        )
+                        if (
+                            response.status_code not in retry_statuses
+                            or attempt >= max_attempts
+                        ):
+                            break
+                    await asyncio.sleep(min(2 ** (attempt - 1), 4))
+            if response is None:
                 raise HTTPException(
                     status_code=502,
-                    detail=(
-                        "capability runtime transport failed: "
-                        f"{type(exc).__name__}"
-                    ),
-                ) from exc
+                    detail={
+                        "message": "capability runtime produced no response",
+                        "attempts": attempts,
+                    },
+                )
             if not 200 <= response.status_code < 300:
                 raise HTTPException(
                     status_code=502,
@@ -222,6 +266,7 @@ def create_app(
                         "message": "capability runtime rejected execution",
                         "http_status": response.status_code,
                         "body": response.text[:1000],
+                        "attempts": attempts,
                     },
                 )
             owner_result = response.json()
@@ -250,6 +295,7 @@ def create_app(
                     "duration_seconds": owner_result.get("duration_seconds"),
                     "retry_count": owner_result.get("retry_count"),
                     "runtime": owner_result.get("runtime"),
+                    "transport_attempts": attempts,
                 },
                 "raj": {
                     "orchestration_mode": "in-chain-tantra-runtime",
