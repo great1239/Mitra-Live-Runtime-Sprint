@@ -349,10 +349,19 @@ services:
       - ecosystem
 
   universal-capability-runtime:
-    <<: *contract-service
+    build:
+      context: .
+      dockerfile: integration_services/kanishk-runtime.Dockerfile
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - ecosystem
     command:
       - uvicorn
-      - integration_services.universal_capability_runtime:app
+      - integration_services.kanishk_runtime_adapter:app
       - --host
       - 0.0.0.0
       - --port
@@ -373,40 +382,8 @@ services:
         - >-
           import json,urllib.request;
           data=json.load(urllib.request.urlopen('http://127.0.0.1:8027/health', timeout=5));
-          assert data['service']=='universal-capability-runtime'
-      interval: 10s
-      timeout: 5s
-      retries: 20
-
-  tantra-execution:
-    <<: *contract-service
-    command:
-      - uvicorn
-      - integration_services.tantra_execution_gateway:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8028"
-    environment:
-      TANTRA_EXECUTION_API_KEY: ${TANTRA_EXECUTION_API_KEY:-}
-      UNIVERSAL_CAPABILITY_RUNTIME_URL: http://universal-capability-runtime:8027
-      UNIVERSAL_CAPABILITY_RUNTIME_API_KEY: ${CAPABILITY_RUNTIME_API_KEY:-}
-      TANTRA_EXECUTION_TIMEOUT: "120"
-    ports:
-      - "127.0.0.1:8128:8028"
-    depends_on:
-      universal-capability-runtime:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - >-
-          import json,urllib.request;
-          data=json.load(urllib.request.urlopen('http://127.0.0.1:8028/health', timeout=5));
-          assert data['service']=='tantra-execution-gateway';
-          assert data['runtime_configured'] is True
+          assert data['service']=='kanishk-universal-capability-runtime';
+          assert data['canonical_owner_runtime'] is True
       interval: 10s
       timeout: 5s
       retries: 20
@@ -423,9 +400,10 @@ services:
     environment:
       RAJ_API_KEY: ${RAJ_API_KEY:-}
       RAJ_ENDPOINT_OVERRIDES_JSON: ${RAJ_ENDPOINT_OVERRIDES_JSON:-{}}
-      RAJ_TANTRA_EXECUTION_URL: http://tantra-execution:8028
-      RAJ_TANTRA_EXECUTION_API_KEY: ${TANTRA_EXECUTION_API_KEY:-}
-      RAJ_TANTRA_TIMEOUT: "150"
+      RAJ_TANTRA_TRANSPORT: in-process
+      RAJ_CAPABILITY_RUNTIME_URL: http://universal-capability-runtime:8027
+      RAJ_CAPABILITY_RUNTIME_API_KEY: ${CAPABILITY_RUNTIME_API_KEY:-}
+      RAJ_CAPABILITY_RUNTIME_TIMEOUT: "150"
     ports:
       - "127.0.0.1:8120:8020"
     healthcheck:
@@ -441,7 +419,7 @@ services:
       timeout: 5s
       retries: 20
     depends_on:
-      tantra-execution:
+      universal-capability-runtime:
         condition: service_healthy
 
   ashmit-mongo:

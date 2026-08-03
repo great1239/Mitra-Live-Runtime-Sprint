@@ -10,12 +10,6 @@ from integration_services.insightflow_bridge import create_app as create_insight
 from integration_services.karma import DEFAULT_GENESIS_HASH, create_app as create_karma
 from integration_services.prana import create_app as create_prana
 from integration_services.raj import create_app as create_raj
-from integration_services.tantra_execution_gateway import (
-    create_app as create_tantra_execution,
-)
-from integration_services.universal_capability_runtime import (
-    create_app as create_capability_runtime,
-)
 
 
 def test_karma_persists_chain_and_detects_replay(tmp_path) -> None:
@@ -369,118 +363,6 @@ def test_raj_honors_published_envelope_and_secret_header(monkeypatch) -> None:
         "intent_id": "setu.operations.summary",
         "payload": {"query": "show operations"},
     }
-
-
-def test_raj_routes_through_tantra_and_universal_runtime(monkeypatch) -> None:
-    monkeypatch.setenv("RAJ_TANTRA_TRANSPORT", "external")
-    monkeypatch.setenv("RAJ_TANTRA_EXECUTION_URL", "https://tantra.test")
-    monkeypatch.setenv(
-        "UNIVERSAL_CAPABILITY_RUNTIME_URL",
-        "https://runtime.test",
-    )
-    product_calls: list[dict[str, Any]] = []
-
-    def product_handler(request: httpx.Request) -> httpx.Response:
-        product_calls.append(
-            {
-                "url": str(request.url),
-                "payload": json.loads(request.content),
-            }
-        )
-        return httpx.Response(
-            200,
-            json={"status": "ok", "predictions": [{"symbol": "AAPL"}]},
-        )
-
-    capability_app = create_capability_runtime(
-        transport=httpx.MockTransport(product_handler)
-    )
-
-    async def tantra_handler(request: httpx.Request) -> httpx.Response:
-        transport = httpx.ASGITransport(app=capability_app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="https://runtime.test",
-        ) as client:
-            return await client.post(
-                request.url.path,
-                content=request.content,
-                headers=dict(request.headers),
-            )
-
-    tantra_app = create_tantra_execution(
-        transport=httpx.MockTransport(tantra_handler)
-    )
-
-    async def raj_handler(request: httpx.Request) -> httpx.Response:
-        transport = httpx.ASGITransport(app=tantra_app)
-        async with httpx.AsyncClient(
-            transport=transport,
-            base_url="https://tantra.test",
-        ) as client:
-            return await client.post(
-                request.url.path,
-                content=request.content,
-                headers=dict(request.headers),
-            )
-
-    raj_app = create_raj(transport=httpx.MockTransport(raj_handler))
-    capability_contract = {
-        "product": {
-            "product_id": "trade-bot",
-            "product_version": "1.0.0",
-            "base_url": "https://product.test",
-        },
-        "capability": {"capability_id": "market-prediction"},
-        "intent": {
-            "intent_id": "trade.predict",
-            "dispatch": {
-                "mode": "http",
-                "endpoint": "/tools/predict",
-                "options": {"request_body": "payload"},
-            },
-            "response_schema": {
-                "type": "object",
-                "required": ["status", "predictions"],
-            },
-        },
-        "input": {"payload": {"symbols": ["AAPL"]}},
-    }
-    response = TestClient(raj_app).post(
-        "/api/workflow/execute",
-        json={
-            "trace_id": "trace-canonical-chain",
-            "decision": "workflow",
-            "data": {
-                "workflow_type": "workflow",
-                "payload": {
-                    "action_type": "task",
-                    "mitra_context": {
-                        "execution_id": "eco-chain",
-                        "capability_contract": capability_contract,
-                    },
-                },
-            },
-        },
-    )
-
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["execution_result"]["success"] is True
-    assert body["raj"]["orchestration_mode"] == (
-        "external-tantra-compatibility"
-    )
-    assert body["tantra"]["boundary_contract"] == (
-        "raj-to-tantra-execution.v1"
-    )
-    assert body["runtime"]["service"] == "universal-capability-runtime"
-    assert body["trace_id"] == "trace-canonical-chain"
-    assert product_calls == [
-        {
-            "url": "https://product.test/tools/predict",
-            "payload": {"symbols": ["AAPL"]},
-        }
-    ]
 
 
 def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(

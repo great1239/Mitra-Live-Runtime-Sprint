@@ -2,26 +2,29 @@
 
 ## File: `docker-compose.ecosystem.yml`
 
-**Sprint change:** Added a health-gated deployment for the response-bearing
-Mitra ecosystem.
+**Sprint change:** Added a health-gated ecosystem deployment, then replaced
+the compatibility capability path with Kanishk's canonical runtime image.
 
-**Purpose:** Runs Mitra, KESHAV, Ashmit, the Bucket owner repository, Raj,
-Karma, PRANA, the InsightFlow owner registry and bridge, MongoDB, authenticated
-Redis, PostgreSQL, and optional product profiles. Ashmit uses the owner Atlas
-URI while Bucket keeps an independent local MongoDB URI.
+**Purpose:** Runs Mitra, Raj, Kanishk's runtime, KESHAV, Ashmit, Bucket, Karma,
+PRANA, InsightFlow, databases, and optional products in one reproducible
+topology.
 
 **Why modified:** Configured owner slots previously had no jointly runnable
-topology.
+topology, and the first topology still launched a compatibility UCR plus a
+standalone TANTRA proxy.
 
 **Key implementation areas:** Dependency health gates, distinct Ashmit and
 Bucket database variables, owner builds including
 KESHAV's sibling repository and exact service identity, Redis AOF and artifact
 volumes, loopback-only ports, container-held credentials,
 required Supabase variables, optional product profiles, and generic published
-origin overrides for local product health and dispatch.
+origin overrides for local product health and dispatch; Kanishk Dockerfile
+build; canonical health contract; direct Raj runtime configuration; removal of
+the standalone proxy.
 
-**Review focus:** No product profile is required for core startup and no secret
-value is embedded in the file.
+**Review focus:** No product profile is required for core startup, no secret is
+embedded, and local execution follows
+`Raj -> in-chain TANTRA -> Kanishk runtime` without a compatibility path.
 
 **Related tests:** `integration_services/tests/test_contract_services.py`,
 `pratham/tests/test_ecosystem_convergence.py`, three completed live acceptance
