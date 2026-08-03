@@ -38,13 +38,24 @@ LEGACY_ECOSYSTEM_STAGE_ORDER: tuple[str, ...] = (
     "central-depository",
 )
 ECOSYSTEM_STAGE_ORDER: tuple[str, ...] = (
-    *LEGACY_ECOSYSTEM_STAGE_ORDER[:3],
-    "keshav-diagnosis",
-    *LEGACY_ECOSYSTEM_STAGE_ORDER[3:],
+    "capability-selection",
+    "dependency-preflight",
+    "raj-execution",
+    "tantra-runtime",
+    "universal-capability-runtime",
+    "capability-execution",
+    "bucket-truth",
+    "replay-validation",
+    "insightflow-telemetry",
 )
 ECOSYSTEM_REPLAY_STAGE_ORDERS: dict[str, tuple[str, ...]] = {
     "mitra-tantra-ecosystem-replay-v1": LEGACY_ECOSYSTEM_STAGE_ORDER,
-    "mitra-tantra-ecosystem-replay-v2": ECOSYSTEM_STAGE_ORDER,
+    "mitra-tantra-ecosystem-replay-v2": (
+        *LEGACY_ECOSYSTEM_STAGE_ORDER[:3],
+        "keshav-diagnosis",
+        *LEGACY_ECOSYSTEM_STAGE_ORDER[3:],
+    ),
+    "mitra-canonical-execution-replay-v3": ECOSYSTEM_STAGE_ORDER,
 }
 
 
@@ -160,14 +171,19 @@ class PublishedEcosystemClient:
                 ),
             },
         }
+        required_modules = ("raj", "bucket", "insightflow")
         pending = [
-            name for name, item in modules.items() if not item["configured"]
+            name for name in required_modules if not modules[name]["configured"]
         ]
         return {
             "ready": not pending,
             "mode": "strict-published-contracts",
             "embedded_fallback": False,
             "pending_modules": pending,
+            "required_modules": list(required_modules),
+            "optional_modules": [
+                name for name in modules if name not in required_modules
+            ],
             "modules": modules,
             "checked_at": utc_now(),
         }
@@ -177,16 +193,16 @@ class PublishedEcosystemClient:
         return {
             "contract_set": "mitra-tantra-ecosystem-contracts-v1",
             "flow": [
-                "mitra.capability-selection",
-                "raj.workflow-execution",
-                "keshav.conditional-diagnosis",
-                "ashmit.provenance-acceptance",
-                "bucket.truth-persistence",
-                "karma.integrity-append",
-                "prana.strict-forwarding",
+                "user.natural-request",
+                "mitra.companion",
+                "raj.control-plane",
+                "tantra.runtime",
+                "universal-capability-runtime.execute",
+                "capability.execute",
+                "bucket.persist",
+                "replay.validate",
                 "insightflow.telemetry",
-                "mitra.deterministic-reconstruction",
-                "central-depository.export",
+                "mitra.response",
             ],
             "contracts": {
                 "raj": {
@@ -452,40 +468,12 @@ class PublishedEcosystemClient:
                 base_url=self.settings.raj_workflow_base_url or "",
                 path="healthz",
             ))
-        if modules["keshav"]["configured"]:
-            probes.append(probe(
-                module="keshav",
-                operation="keshav.health",
-                base_url=self.settings.bhiv_keshav_base_url or "",
-                path="health",
-            ))
         if modules["bucket"]["configured"]:
             probes.append(probe(
                 module="bucket",
                 operation="bucket.health",
                 base_url=self.settings.bhiv_bucket_base_url or "",
                 path="health",
-            ))
-        if modules["ashmit"]["configured"]:
-            probes.append(probe(
-                module="ashmit",
-                operation="ashmit.health-system",
-                base_url=self.settings.bhiv_ashmit_base_url or "",
-                path="health/system",
-            ))
-        if modules["prana"]["configured"]:
-            probes.append(probe(
-                module="prana",
-                operation="prana.health",
-                base_url=self.settings.bhiv_prana_base_url or "",
-                path="health",
-            ))
-        if modules["central_depository"]["configured"]:
-            probes.append(probe(
-                module="central_depository",
-                operation="central-depository.latest-hash",
-                base_url=self.settings.central_depository_base_url or "",
-                path="bucket/latest-hash",
             ))
 
         for module, result in await asyncio.gather(*probes):
@@ -997,19 +985,14 @@ class PublishedEcosystemClient:
         artifact_timestamp: str,
         capability_contract: dict[str, Any],
         raj_result: dict[str, Any],
-        keshav_result: dict[str, Any],
-        ashmit_result: dict[str, Any],
     ) -> dict[str, Any]:
         execution_artifact = {
             "artifact_type": "mitra.raj-workflow-execution.v1",
             "execution_id": execution_id,
             "trace_id": trace_id,
             "raj_trace_id": raj_result["raj_trace_id"],
-            "ashmit_trace_id": ashmit_result["ashmit_trace_id"],
             "capability_contract": capability_contract,
             "raj_execution": raj_result,
-            "keshav_diagnosis": keshav_result,
-            "ashmit_provenance": ashmit_result,
         }
         artifact_id = sha256_json(execution_artifact)
         envelope = {
@@ -1357,11 +1340,8 @@ class PublishedEcosystemClient:
         execution_id: str,
         capability_contract: dict[str, Any],
         raj_result: dict[str, Any],
-        keshav_result: dict[str, Any],
-        ashmit_result: dict[str, Any],
         bucket_result: dict[str, Any],
-        karma_result: dict[str, Any],
-        prana_result: dict[str, Any],
+        replay_result: dict[str, Any],
     ) -> dict[str, Any]:
         envelope = {
             "event_type": "mitra.tantra.execution.completed.v1",
@@ -1373,15 +1353,12 @@ class PublishedEcosystemClient:
                 "raj_trace_id": raj_result["raj_trace_id"],
                 "raj_execution_hash": sha256_json(raj_result),
                 "product_execution_status": raj_result["status"],
-                "keshav_status": keshav_result["status"],
-                "keshav_invoked": keshav_result["invoked"],
-                "keshav_diagnosis_hash": sha256_json(keshav_result),
-                "ashmit_trace_id": ashmit_result["ashmit_trace_id"],
-                "ashmit_provenance_hash": sha256_json(ashmit_result),
                 "bucket_artifact_id": bucket_result["artifact_id"],
                 "bucket_artifact_hash": bucket_result["artifact_hash"],
-                "karma_hash": karma_result["accepted_hash"],
-                "prana_request_hash": prana_result["strict_bytes_sha256"],
+                "replay_status": replay_result["status"],
+                "replay_reconstruction_hash": replay_result[
+                    "reconstruction_hash"
+                ],
             },
         }
         headers = {
@@ -1410,7 +1387,7 @@ class PublishedEcosystemClient:
 class EcosystemReplayLedger:
     """Portable reconstruction of the complete cross-system execution."""
 
-    replay_type = "mitra-tantra-ecosystem-replay-v2"
+    replay_type = "mitra-canonical-execution-replay-v3"
 
     @classmethod
     def build(
@@ -1499,6 +1476,40 @@ class EcosystemReplayLedger:
         request = payloads["request"]
         capability = payloads["capability-selection"]["response"]
         raj = payloads["raj-execution"]["response"]
+        if "replay-validation" in payloads:
+            tantra = payloads["tantra-runtime"]["response"]
+            runtime = payloads["universal-capability-runtime"]["response"]
+            capability_execution = payloads["capability-execution"][
+                "response"
+            ]
+            bucket = payloads["bucket-truth"]["response"]
+            replay = payloads["replay-validation"]["response"]
+            insight = payloads["insightflow-telemetry"]["response"]
+            return {
+                "request_hash": request["request_hash"],
+                "selected_capability": capability["capability_contract"],
+                "mitra_trace_id": raj["trace_id"],
+                "raj_trace_id": raj["raj_trace_id"],
+                "tantra_receipt_hash": tantra["receipt_hash"],
+                "universal_runtime_receipt_hash": runtime["receipt_hash"],
+                "capability_execution_receipt_hash": capability_execution[
+                    "receipt_hash"
+                ],
+                "raj_execution": raj["execution"],
+                "bucket_artifact_id": bucket["artifact_id"],
+                "bucket_artifact_hash": bucket["artifact_hash"],
+                "replay_reconstruction_hash": replay[
+                    "reconstruction_hash"
+                ],
+                "insightflow_envelope_hash": sha256_json(
+                    insight["envelope"]
+                ),
+                "stage_response_hashes": {
+                    name: payloads[name]["response_hash"]
+                    for name in stage_names
+                },
+                "status": "COMPLETED",
+            }
         keshav_component = payloads.get("keshav-diagnosis")
         keshav = (
             keshav_component["response"]
@@ -1911,6 +1922,48 @@ class EcosystemRuntime:
                 capability_contract=capability_result["capability_contract"],
             ),
         )
+        execution_path = raj_result.get("execution_path") or {}
+        tantra_result = await self._run_stage(
+            execution_id=execution_id,
+            stage_name="tantra-runtime",
+            request_payload={
+                "trace_id": trace_id,
+                "boundary_contract": "raj-to-tantra-execution.v1",
+                "raj_response_hash": sha256_json(raj_result),
+            },
+            operation=lambda: self._validated_handoff_receipt(
+                trace_id=trace_id,
+                entity="TANTRA_RUNTIME",
+                payload=execution_path.get("tantra"),
+            ),
+        )
+        runtime_result = await self._run_stage(
+            execution_id=execution_id,
+            stage_name="universal-capability-runtime",
+            request_payload={
+                "trace_id": trace_id,
+                "tantra_receipt_hash": sha256_json(tantra_result),
+            },
+            operation=lambda: self._validated_handoff_receipt(
+                trace_id=trace_id,
+                entity="UNIVERSAL_CAPABILITY_RUNTIME",
+                payload=execution_path.get("universal_capability_runtime"),
+            ),
+        )
+        await self._run_stage(
+            execution_id=execution_id,
+            stage_name="capability-execution",
+            request_payload={
+                "trace_id": trace_id,
+                "runtime_receipt_hash": sha256_json(runtime_result),
+                "capability_contract_hash": sha256_json(capability_contract),
+            },
+            operation=lambda: self._validated_handoff_receipt(
+                trace_id=trace_id,
+                entity="CAPABILITY_EXECUTION",
+                payload=raj_result.get("execution"),
+            ),
+        )
         downstream_result = await self.downstream.execute(
             handoff=BHIVDownstreamHandoff(
                 execution_id=execution_id,
@@ -1929,7 +1982,11 @@ class EcosystemRuntime:
                 request_payload=payload,
                 operation=operation,
             ),
-            build_central_package=self._central_package,
+            replay_prefix=lambda bucket: self._validate_replay_prefix(
+                execution_id=execution_id,
+                trace_id=trace_id,
+                bucket_result=bucket,
+            ),
         )
         execution = self.store.get_ecosystem_execution(execution_id) or {}
         stages = self._stages_with_lineage(execution_id)
@@ -1982,6 +2039,65 @@ class EcosystemRuntime:
     @staticmethod
     async def _return(value: dict[str, Any]) -> dict[str, Any]:
         return value
+
+    @staticmethod
+    async def _validated_handoff_receipt(
+        *, trace_id: str, entity: str, payload: Any
+    ) -> dict[str, Any]:
+        if not isinstance(payload, dict) or not payload:
+            raise EcosystemIntegrationError(
+                f"Raj omitted the required {entity} execution receipt"
+            )
+        return {
+            "trace_id": trace_id,
+            "status": "accepted",
+            "entity": entity,
+            "receipt": payload,
+            "receipt_hash": sha256_json(payload),
+        }
+
+    async def _validate_replay_prefix(
+        self,
+        *,
+        execution_id: str,
+        trace_id: str,
+        bucket_result: dict[str, Any],
+    ) -> dict[str, Any]:
+        prefix_names = ECOSYSTEM_STAGE_ORDER[
+            : ECOSYSTEM_STAGE_ORDER.index("replay-validation")
+        ]
+        stages = {
+            stage["stage_name"]: stage
+            for stage in self._stages_with_lineage(execution_id)
+        }
+        missing = [name for name in prefix_names if name not in stages]
+        incomplete = [
+            name
+            for name in prefix_names
+            if name in stages and stages[name]["status"] != "COMPLETED"
+        ]
+        if missing or incomplete:
+            raise EcosystemIntegrationError(
+                f"Replay prefix is incomplete: missing={missing}, "
+                f"incomplete={incomplete}"
+            )
+        reconstruction = {
+            "execution_id": execution_id,
+            "trace_id": trace_id,
+            "stage_response_hashes": {
+                name: stages[name]["response_hash"] for name in prefix_names
+            },
+            "bucket_artifact_id": bucket_result["artifact_id"],
+            "bucket_artifact_hash": bucket_result["artifact_hash"],
+        }
+        return {
+            "trace_id": trace_id,
+            "status": "verified",
+            "source": "immutable-stage-artifacts",
+            "reconstructed_stage_count": len(prefix_names),
+            "reconstruction": reconstruction,
+            "reconstruction_hash": sha256_json(reconstruction),
+        }
 
     async def _run_stage(
         self,

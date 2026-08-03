@@ -67,6 +67,10 @@
             "owned_by_product": true,
             "adapter_contract": "mitra-envelope-v1",
             "requires_runtime_secret": "MITRA_PRODUCT_SETU_API_KEY",
+            "routing_hints": {
+              "requires_domain_match": true,
+              "domain_terms": ["setu", "crm", "inventory", "sku", "warehouse"]
+            },
             "read_only": true
           }
         },
@@ -122,6 +126,10 @@
             "owned_by_product": true,
             "adapter_contract": "mitra-envelope-v1",
             "requires_runtime_secret": "MITRA_PRODUCT_SETU_API_KEY",
+            "routing_hints": {
+              "requires_domain_match": true,
+              "domain_terms": ["setu", "crm", "inventory", "order", "orders", "operations", "sales"]
+            },
             "read_only": true
           }
         },
@@ -170,6 +178,10 @@
             "owned_by_product": true,
             "adapter_contract": "mitra-envelope-v1",
             "requires_runtime_secret": "MITRA_PRODUCT_SETU_API_KEY",
+            "routing_hints": {
+              "requires_domain_match": true,
+              "domain_terms": ["setu", "crm", "order", "orders", "order_number"]
+            },
             "read_only": true
           }
         }

@@ -337,17 +337,14 @@ def create_app(
       <div class="value">{ecosystem['execution_counts'].get('TOTAL', 0)}</div></div>
   </div>
   <div class="card section"><h2>Canonical execution boundaries</h2>
-    <div class="flow"><strong>Natural request</strong> -> Mitra capability
-      selection -> Raj orchestration -> <strong>TANTRA execution boundary</strong>
-      -> Universal Capability Runtime -> Product capability ->
-      <strong>BHIV downstream</strong> -> KESHAV conditional diagnosis ->
-      Ashmit provenance -> Bucket truth -> Karma integrity -> PRANA strict
-      forwarding -> InsightFlow telemetry -> deterministic replay ->
-      Central Depository export
-      <br><small>Owner services are invoked through published contracts. A failed
-      or unconfigured stage stops downstream execution. The local capability
-      runtime is a compatibility implementation pending canonical owner
-      certification.</small></div>
+    <div class="flow"><strong>User</strong> -> MITRA Companion ->
+      Raj Control Plane -> <strong>TANTRA Runtime</strong> ->
+      Universal Capability Runtime -> Capability Execution ->
+      Bucket -> Replay -> InsightFlow -> <strong>MITRA Response</strong>
+      <br><small>Every response-critical transition is recorded through its
+      published contract. KESHAV, Ashmit, Karma, PRANA, and Central Depository
+      remain optional extensions and cannot insert stages into or block this
+      canonical path.</small></div>
   </div>
   <div class="card section"><h2>Recent ecosystem executions</h2>
     <table><thead><tr><th>Execution</th><th>Trace</th><th>Stage</th>

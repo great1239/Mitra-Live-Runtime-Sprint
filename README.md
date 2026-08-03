@@ -16,14 +16,15 @@ packages for those external authorities to consume.
 The final strict convergence path is:
 
 ```text
-User -> MITRA capability selection -> Raj -> product runtime
-     -> KESHAV diagnosis only when the product returns a typed error
-     -> Ashmit -> Bucket -> Karma -> PRANA -> InsightFlow
-     -> deterministic reconstruction -> Central Depository
+User -> MITRA Companion -> Raj Control Plane -> TANTRA Runtime
+     -> Universal Capability Runtime -> Capability Execution -> Bucket
+     -> Replay -> InsightFlow -> MITRA Response
 ```
 
 Run it through `POST /api/v1/ecosystem/execute`. This endpoint calls only
-configured owner contracts and never substitutes an embedded adapter. See
+configured canonical owner contracts and never substitutes an embedded
+adapter. KESHAV, Ashmit, Karma, PRANA, and Central Depository remain optional
+extension contracts; they do not alter or block the response-critical path. See
 `docs/TANTRA_ECOSYSTEM_CONVERGENCE.md` for configuration and recovery.
 
 The canonical product definition, compliance posture, and production

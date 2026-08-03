@@ -500,6 +500,11 @@ class NaturalIntentResolver:
             )
             required_fields = set(_schema_required_fields(candidate))
             routing_hints = _routing_hints(candidate)
+            domain_terms = {
+                str(item).lower()
+                for item in routing_hints.get("domain_terms", [])
+                if str(item).strip()
+            }
             score = overlap + (outcome_overlap * 0.18)
             if product_id and candidate["product_id"] == product_id:
                 score += 0.22
@@ -521,6 +526,12 @@ class NaturalIntentResolver:
                 and routing_hints.get("open_domain_questions") is True
             ):
                 score += 0.2
+            if (
+                routing_hints.get("requires_domain_match") is True
+                and domain_terms
+                and not (message_tokens & domain_terms)
+            ):
+                score -= 0.65
             if extract_symbols(message) and any(
                 "symbol" in field for field in required_fields
             ):

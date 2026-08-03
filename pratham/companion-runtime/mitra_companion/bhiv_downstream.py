@@ -18,6 +18,7 @@ StageRunner = Callable[
     [str, dict[str, Any], Callable[[], Awaitable[dict[str, Any]]]],
     Awaitable[dict[str, Any]],
 ]
+ReplayRunner = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,13 +67,9 @@ class BHIVDownstreamRuntime:
             "mode": "post-capability-convergence",
             "boundary_contract": self.boundary_contract,
             "owns_stages": [
-                "keshav-diagnosis",
-                "ashmit-provenance",
                 "bucket-truth",
-                "karma-integrity",
-                "prana-forwarding",
+                "replay-validation",
                 "insightflow-telemetry",
-                "central-depository",
             ],
             "does_not_own": [
                 "natural-request",
@@ -88,72 +85,41 @@ class BHIVDownstreamRuntime:
         *,
         handoff: BHIVDownstreamHandoff,
         run_stage: StageRunner,
-        build_central_package: Callable[..., dict[str, Any]],
+        replay_prefix: ReplayRunner,
     ) -> dict[str, Any]:
         trace_id = handoff.trace_id
         execution_id = handoff.execution_id
         capability_contract = handoff.capability_contract
         raj_result = handoff.raj_result
 
-        keshav_result = await run_stage(
-            "keshav-diagnosis",
-            {
-                "trace_id": trace_id,
-                "execution_id": execution_id,
-                "boundary_contract": self.boundary_contract,
-                "product_execution_status": raj_result["status"],
-                "product_execution_hash": sha256_json(raj_result),
-                "conditional_invocation": "product-error-only",
-            },
-            lambda: self.client.diagnose_keshav_product_failure(
-                trace_id=trace_id,
-                execution_id=execution_id,
-                capability_contract=capability_contract,
-                raj_result=raj_result,
-            ),
-        )
-        ashmit_result = await run_stage(
-            "ashmit-provenance",
-            {
-                "trace_id": trace_id,
-                "execution_id": execution_id,
-                "boundary_contract": self.boundary_contract,
-                "raj_result_hash": sha256_json(raj_result),
-                "keshav_result_hash": sha256_json(keshav_result),
-                "capability_contract_hash": sha256_json(
-                    capability_contract
+        async with self._chain_head_lease(execution_id):
+            bucket_result = await run_stage(
+                "bucket-truth",
+                {
+                    "trace_id": trace_id,
+                    "execution_id": execution_id,
+                    "boundary_contract": self.boundary_contract,
+                    "artifact_timestamp": handoff.artifact_timestamp,
+                    "raj_result_hash": sha256_json(raj_result),
+                },
+                lambda: self.client.persist_bucket(
+                    trace_id=trace_id,
+                    execution_id=execution_id,
+                    artifact_timestamp=handoff.artifact_timestamp,
+                    capability_contract=capability_contract,
+                    raj_result=raj_result,
                 ),
-            },
-            lambda: self.client.record_ashmit_provenance(
-                trace_id=trace_id,
-                execution_id=execution_id,
-                request=handoff.request,
-                session=handoff.session,
-                capability_contract=capability_contract,
-                raj_result=raj_result,
-                keshav_result=keshav_result,
-            ),
-        )
-        bucket_result, karma_result = await self._run_integrity_chain(
-            handoff=handoff,
-            keshav_result=keshav_result,
-            ashmit_result=ashmit_result,
-            run_stage=run_stage,
-        )
-        prana_result = await run_stage(
-            "prana-forwarding",
+            )
+        replay_result = await run_stage(
+            "replay-validation",
             {
                 "trace_id": trace_id,
+                "execution_id": execution_id,
                 "boundary_contract": self.boundary_contract,
-                "karma_request_sha256": karma_result["request_sha256"],
-                "karma_request_body_utf8": karma_result[
-                    "request_body_utf8"
-                ],
+                "bucket_artifact_id": bucket_result["artifact_id"],
+                "bucket_artifact_hash": bucket_result["artifact_hash"],
             },
-            lambda: self.client.forward_prana(
-                trace_id=trace_id,
-                karma_result=karma_result,
-            ),
+            lambda: replay_prefix(bucket_result),
         )
         insight_result = await run_stage(
             "insightflow-telemetry",
@@ -162,57 +128,25 @@ class BHIVDownstreamRuntime:
                 "execution_id": execution_id,
                 "boundary_contract": self.boundary_contract,
                 "raj_result_hash": sha256_json(raj_result),
-                "keshav_result_hash": sha256_json(keshav_result),
-                "ashmit_result_hash": sha256_json(ashmit_result),
                 "bucket_result_hash": sha256_json(bucket_result),
-                "karma_result_hash": sha256_json(karma_result),
-                "prana_result_hash": sha256_json(prana_result),
+                "replay_result_hash": sha256_json(replay_result),
             },
             lambda: self.client.emit_insightflow(
                 trace_id=trace_id,
                 execution_id=execution_id,
                 capability_contract=capability_contract,
                 raj_result=raj_result,
-                keshav_result=keshav_result,
-                ashmit_result=ashmit_result,
                 bucket_result=bucket_result,
-                karma_result=karma_result,
-                prana_result=prana_result,
+                replay_result=replay_result,
             ),
         )
-        handover_package = build_central_package(
-            execution_id=execution_id,
-            trace_id=trace_id,
-            insight_result=insight_result,
-        )
-        async with self._chain_head_lease(execution_id):
-            central_result = await run_stage(
-                "central-depository",
-                {
-                    "trace_id": trace_id,
-                    "execution_id": execution_id,
-                    "boundary_contract": self.boundary_contract,
-                    "package_hash": handover_package["package_hash"],
-                    "subject_type": "ecosystem_execution",
-                },
-                lambda: self.client.deposit_central_depository(
-                    trace_id=trace_id,
-                    execution_id=execution_id,
-                    artifact_timestamp=handoff.artifact_timestamp,
-                    handover_package=handover_package,
-                ),
-            )
         return {
             "entity": "BHIV_DOWNSTREAM",
             "boundary": handoff.summary(),
             "results": {
-                "keshav": keshav_result,
-                "ashmit": ashmit_result,
                 "bucket": bucket_result,
-                "karma": karma_result,
-                "prana": prana_result,
+                "replay": replay_result,
                 "insightflow": insight_result,
-                "central_depository": central_result,
             },
         }
 

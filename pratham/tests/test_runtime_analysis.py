@@ -37,6 +37,7 @@ def _production_manifest(name: str) -> ProductAttachmentManifest:
     [
         ("Show AAPL stock", "samruddhi-trade-bot"),
         ("Distance of Earth from Sun", "samruddhi-uniguru"),
+        ("1000 inr to usd conversion", "samruddhi-uniguru"),
         ("Show low-stock inventory", "setu-ai-crm"),
     ],
 )

@@ -370,7 +370,7 @@ services:
       CAPABILITY_RUNTIME_API_KEY: ${CAPABILITY_RUNTIME_API_KEY:-}
       MITRA_PRODUCT_UNIGURU_BEARER_TOKEN: ${MITRA_PRODUCT_UNIGURU_BEARER_TOKEN:-}
       MITRA_PRODUCT_UNIGURU_RAG_TOKEN: ${MITRA_PRODUCT_UNIGURU_RAG_TOKEN:-}
-      SETU_API_KEY: ${SETU_API_KEY:-}
+      MITRA_PRODUCT_SETU_API_KEY: ${MITRA_PRODUCT_SETU_API_KEY:-${SETU_API_KEY:-}}
       CAPABILITY_ENDPOINT_OVERRIDES_JSON: ${CAPABILITY_ENDPOINT_OVERRIDES_JSON:-{"https://pratham-bhiv-bucket.onrender.com":"http://bucket:8000","https://uni-guru.in":"http://uniguru:8000","https://trade-bot-api.onrender.com":"http://trade-bot:8000"}}
     ports:
       - "127.0.0.1:8127:8027"

@@ -334,6 +334,16 @@ class RuntimeAnalyzer:
                 _overlap(outcome_tokens, candidate_tokens),
             )
             routing_hints = _routing_hints(candidate)
+            domain_terms = {
+                str(item).lower()
+                for item in routing_hints.get("domain_terms", [])
+                if str(item).strip()
+            }
+            domain_mismatch = bool(
+                routing_hints.get("requires_domain_match") is True
+                and domain_terms
+                and not (message_tokens & domain_terms)
+            )
             entity_fit = (
                 0.2
                 if outcome.get("symbols")
@@ -375,6 +385,7 @@ class RuntimeAnalyzer:
                 + open_domain_fit
                 + entity_fit
                 - latency_penalty
+                - (0.65 if domain_mismatch else 0.0)
             )
             gaps = []
             if missing:
@@ -388,6 +399,8 @@ class RuntimeAnalyzer:
                 gaps.append({"kind": "product-unavailable"})
             if expectation_fit < 0.12:
                 gaps.append({"kind": "weak-expectation-match"})
+            if domain_mismatch:
+                gaps.append({"kind": "domain-mismatch"})
             if not protocol_fit:
                 gaps.append({"kind": "missing-dispatch-target"})
             matrix.append(

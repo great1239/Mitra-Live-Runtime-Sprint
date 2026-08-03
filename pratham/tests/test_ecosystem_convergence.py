@@ -17,7 +17,7 @@ from mitra_companion.contracts import (
     EcosystemExecutionRequest,
     ProductAttachmentManifest,
 )
-from mitra_companion.ecosystem import EcosystemReplayLedger
+from mitra_companion.ecosystem import ECOSYSTEM_STAGE_ORDER, EcosystemReplayLedger
 from mitra_companion.errors import (
     EcosystemConfigurationError,
     EcosystemIntegrationError,
@@ -214,6 +214,18 @@ class ContractEnvironment:
                                 "http_status": 422,
                             }
                         ),
+                    },
+                    "raj": {
+                        "orchestration_mode": "in-chain-tantra-runtime",
+                    },
+                    "tantra": {
+                        "boundary_contract": "raj-to-tantra-execution.v1",
+                        "status": "executed",
+                    },
+                    "runtime": {
+                        "service": "kanishk-universal-capability-runtime",
+                        "mode": "canonical-owner-engine",
+                        "status": "executed",
                     },
                 },
             )
@@ -439,19 +451,10 @@ async def test_companion_uses_the_canonical_ecosystem_pipeline(
         assert EcosystemReplayLedger.validate(replay)["status"] == "verified"
         called_hosts = [call["host"] for call in environment.calls]
         assert called_hosts.index("raj.test") < called_hosts.index("bucket.test")
-        karma_append = next(
-            index
-            for index, call in enumerate(environment.calls)
-            if call["host"] == "karma.test" and call["method"] == "POST"
-        )
-        prana_forward = next(
-            index
-            for index, call in enumerate(environment.calls)
-            if call["host"] == "prana.test" and call["method"] == "POST"
-        )
-        assert karma_append < prana_forward
+        assert "karma.test" not in called_hosts
+        assert "prana.test" not in called_hosts
         assert "insight.test" in called_hosts
-        assert "central.test" in called_hosts
+        assert "central.test" not in called_hosts
     finally:
         runtime.stop()
 
@@ -475,15 +478,8 @@ async def test_dependency_preflight_probes_owner_services_concurrently(
         runtime.stop()
 
     assert result["status"] == "healthy"
-    assert [check["module"] for check in result["checks"]] == [
-        "raj",
-        "keshav",
-        "bucket",
-        "ashmit",
-        "prana",
-        "central_depository",
-    ]
-    assert transport.max_active_health_requests == 6
+    assert [check["module"] for check in result["checks"]] == ["raj", "bucket"]
+    assert transport.max_active_health_requests == 2
 
 
 @pytest.mark.asyncio
@@ -503,13 +499,12 @@ async def test_strict_ecosystem_flow_records_every_owner_response(
         "capability-selection",
         "dependency-preflight",
         "raj-execution",
-        "keshav-diagnosis",
-        "ashmit-provenance",
+        "tantra-runtime",
+        "universal-capability-runtime",
+        "capability-execution",
         "bucket-truth",
-        "karma-integrity",
-        "prana-forwarding",
+        "replay-validation",
         "insightflow-telemetry",
-        "central-depository",
     ]
     assert all(stage["response"] is not None for stage in result["stages"])
     assert all(stage["artifact_hash"] for stage in result["stages"])
@@ -529,20 +524,17 @@ async def test_strict_ecosystem_flow_records_every_owner_response(
         "horizon": "short",
     }
     assert environment.count("POST", "/analyze", host="keshav.test") == 0
-    assert environment.count("POST", "/api/mitra/evaluate") == 1
+    assert environment.count("POST", "/api/mitra/evaluate") == 0
     assert environment.count(
         "POST", "/bucket/artifact", host="bucket.test"
     ) == 1
-    assert environment.count(
-        "POST", "/bucket/artifact", host="central.test"
-    ) == 1
-    assert environment.count("POST", "/integrity/append-bucket-artifact") == 1
-    assert environment.count("POST", "/forward/karma-strict") == 1
+    assert environment.count("POST", "/integrity/append-bucket-artifact") == 0
+    assert environment.count("POST", "/forward/karma-strict") == 0
     assert environment.count("POST", "/v1/executions") == 1
 
 
 @pytest.mark.asyncio
-async def test_product_error_invokes_keshav_then_persists_diagnosis(
+async def test_product_error_is_stored_and_replayed_without_side_chain(
     settings_factory,
 ):
     environment = ContractEnvironment()
@@ -562,31 +554,22 @@ async def test_product_error_invokes_keshav_then_persists_diagnosis(
         for stage in result["stages"]
     }
     raj = by_stage["raj-execution"]
-    diagnosis = by_stage["keshav-diagnosis"]
     assert raj["status"] == "product_error"
     assert raj["execution"]["success"] is False
-    assert diagnosis["status"] == "diagnosed"
-    assert diagnosis["invoked"] is True
-    assert diagnosis["diagnosis"]["trace_id"] == result["execution"][
-        "trace_id"
-    ]
-    assert diagnosis["diagnosis"]["resolution_signal"].startswith(
-        "UNBLOCK_DEPENDENCY:product-runtime-"
-    )
-    assert "Mitra does not authorize or execute" in diagnosis["authority"]
-    assert environment.count("POST", "/analyze", host="keshav.test") == 1
+    assert by_stage["replay-validation"]["status"] == "verified"
+    assert environment.count("POST", "/analyze", host="keshav.test") == 0
     assert environment.count(
         "POST", "/bucket/artifact", host="bucket.test"
     ) == 1
-    assert environment.count("POST", "/integrity/append-bucket-artifact") == 1
+    assert environment.count("POST", "/integrity/append-bucket-artifact") == 0
     assert environment.count("POST", "/v1/executions") == 1
     replay = runtime.validate_ecosystem_replay(package)
     assert replay["status"] == "verified"
-    assert replay["reconstructed_execution"]["keshav_invoked"] is True
+    assert replay["reconstructed_execution"]["status"] == "COMPLETED"
 
 
 @pytest.mark.asyncio
-async def test_keshav_trace_mutation_stops_before_truth_storage(
+async def test_legacy_keshav_is_not_on_the_canonical_path(
     settings_factory,
 ):
     environment = ContractEnvironment()
@@ -594,25 +577,15 @@ async def test_keshav_trace_mutation_stops_before_truth_storage(
     environment.keshav_mutates_trace = True
     runtime = _configured_runtime(settings_factory, environment)
     try:
-        with pytest.raises(EcosystemIntegrationError):
-            await runtime.execute_ecosystem(_request())
+        result = await runtime.execute_ecosystem(_request())
     finally:
         runtime.stop()
 
-    assert environment.count("POST", "/analyze", host="keshav.test") == 1
+    assert result["execution"]["status"] == "COMPLETED"
+    assert environment.count("POST", "/analyze", host="keshav.test") == 0
     assert environment.count(
         "POST", "/bucket/artifact", host="bucket.test"
-    ) == 0
-    failed = runtime.ecosystem_executions(status="FAILED")
-    assert len(failed) == 1
-    detail = runtime.ecosystem_execution(failed[0]["execution_id"])
-    stage = next(
-        item
-        for item in detail["stages"]
-        if item["stage_name"] == "keshav-diagnosis"
-    )
-    assert stage["status"] == "FAILED"
-    assert stage["response"]["contract_validation"]["valid"] is False
+    ) == 1
 
 
 @pytest.mark.asyncio
@@ -652,7 +625,7 @@ async def test_replay_reconstructs_after_runtime_state_is_removed(
 
 
 @pytest.mark.asyncio
-async def test_replay_accepts_pre_keshav_v1_package(settings_factory):
+async def test_replay_uses_the_canonical_v3_contract(settings_factory):
     environment = ContractEnvironment()
     runtime = _configured_runtime(settings_factory, environment)
     try:
@@ -665,66 +638,12 @@ async def test_replay_accepts_pre_keshav_v1_package(settings_factory):
     finally:
         runtime.stop()
 
-    package["replay_type"] = "mitra-tantra-ecosystem-replay-v1"
-    package["components"] = [
-        component
-        for component in package["components"]
-        if component["name"] != "keshav-diagnosis"
-    ]
-    previous_component_hash = None
-    previous_lineage_hash = None
-    for index, component in enumerate(package["components"]):
-        component["index"] = index
-        component["previous_component_hash"] = previous_component_hash
-        payload = component["payload"]
-        if component["name"] != "request":
-            metadata = {
-                "artifact_type": "tantra.ecosystem-stage.v1",
-                "stage_name": component["name"],
-            }
-            lineage_id = "lin_" + sha256_json(
-                {
-                    "subject_type": "ecosystem_execution",
-                    "subject_id": package["execution_id"],
-                    "artifact_hash": payload["artifact_hash"],
-                    "metadata": metadata,
-                }
-            )[:32]
-            chain_hash = sha256_json(
-                {
-                    "subject_type": "ecosystem_execution",
-                    "subject_id": package["execution_id"],
-                    "artifact_hash": payload["artifact_hash"],
-                    "parent_chain_hash": previous_lineage_hash,
-                    "sequence": index,
-                    "metadata": metadata,
-                }
-            )
-            payload["lineage_id"] = lineage_id
-            payload["chain_hash"] = chain_hash
-            payload["lineage"].update(
-                {
-                    "lineage_id": lineage_id,
-                    "parent_chain_hash": previous_lineage_hash,
-                    "sequence": index,
-                    "chain_hash": chain_hash,
-                }
-            )
-            previous_lineage_hash = chain_hash
-        component["component_hash"] = sha256_json(payload)
-        previous_component_hash = component["component_hash"]
-
-    package["component_chain_head"] = previous_component_hash
-    reconstructed = EcosystemReplayLedger._reconstruct(package["components"])
-    package["reconstructed_execution"] = reconstructed
-    package["reconstructed_execution_hash"] = sha256_json(reconstructed)
-    core = {key: value for key, value in package.items() if key != "package_hash"}
-    package["package_hash"] = sha256_json(core)
-
     validation = EcosystemReplayLedger.validate(package)
     assert validation["status"] == "verified"
-    assert validation["reconstructed_execution"] == reconstructed
-    assert "keshav_status" not in reconstructed
+    assert package["replay_type"] == "mitra-canonical-execution-replay-v3"
+    assert [item["name"] for item in package["components"]][1:] == list(
+        ECOSYSTEM_STAGE_ORDER
+    )
 
 
 @pytest.mark.asyncio
@@ -738,7 +657,10 @@ async def test_replay_rejects_mutated_recorded_response(settings_factory):
         )["package"]
     finally:
         runtime.stop()
-    replay["components"][3]["payload"]["response"]["status"] = "mutated"
+    raj_component = next(
+        item for item in replay["components"] if item["name"] == "raj-execution"
+    )
+    raj_component["payload"]["response"]["status"] = "mutated"
 
     validation = EcosystemReplayLedger.validate(replay)
 
@@ -755,13 +677,13 @@ async def test_karma_rejection_stops_prana_and_downstream(settings_factory):
     environment.karma_status = "replay_detected"
     runtime = _configured_runtime(settings_factory, environment)
     try:
-        with pytest.raises(EcosystemIntegrationError):
-            await runtime.execute_ecosystem(_request())
+        result = await runtime.execute_ecosystem(_request())
     finally:
         runtime.stop()
 
+    assert result["execution"]["status"] == "COMPLETED"
     assert environment.count("POST", "/forward/karma-strict") == 0
-    assert environment.count("POST", "/v1/executions") == 0
+    assert environment.count("POST", "/v1/executions") == 1
 
 
 @pytest.mark.asyncio
@@ -772,16 +694,16 @@ async def test_ashmit_rejection_stops_truth_and_integrity_stages(
     environment.ashmit_decision = "BLOCK"
     runtime = _configured_runtime(settings_factory, environment)
     try:
-        with pytest.raises(EcosystemIntegrationError):
-            await runtime.execute_ecosystem(_request())
+        result = await runtime.execute_ecosystem(_request())
     finally:
         runtime.stop()
 
+    assert result["execution"]["status"] == "COMPLETED"
     assert environment.count("POST", "/api/workflow/execute") == 1
-    assert environment.count("POST", "/api/mitra/evaluate") == 1
+    assert environment.count("POST", "/api/mitra/evaluate") == 0
     assert environment.count(
         "POST", "/bucket/artifact", host="bucket.test"
-    ) == 0
+    ) == 1
     assert environment.count("POST", "/integrity/append-bucket-artifact") == 0
 
 
@@ -805,12 +727,12 @@ async def test_recovery_resumes_at_failed_stage_without_repeating_owners(
 
     assert recovered["execution"]["status"] == "COMPLETED"
     assert environment.count("POST", "/api/workflow/execute") == 1
-    assert environment.count("POST", "/api/mitra/evaluate") == 1
+    assert environment.count("POST", "/api/mitra/evaluate") == 0
     assert environment.count(
         "POST", "/bucket/artifact", host="bucket.test"
     ) == 1
-    assert environment.count("POST", "/integrity/append-bucket-artifact") == 1
-    assert environment.count("POST", "/forward/karma-strict") == 1
+    assert environment.count("POST", "/integrity/append-bucket-artifact") == 0
+    assert environment.count("POST", "/forward/karma-strict") == 0
     assert environment.count("POST", "/v1/executions") == 2
     insight_attempts = [
         item
@@ -878,12 +800,12 @@ async def test_idempotency_does_not_repeat_external_execution(settings_factory):
         "execution_id"
     ]
     assert environment.count("POST", "/api/workflow/execute") == 1
-    assert environment.count("POST", "/api/mitra/evaluate") == 1
+    assert environment.count("POST", "/api/mitra/evaluate") == 0
     assert runtime.store.counts()["sessions"] == 1
 
 
 @pytest.mark.asyncio
-async def test_restart_uses_durable_karma_chain_head(settings_factory):
+async def test_restart_uses_durable_bucket_chain_head(settings_factory):
     environment = ContractEnvironment()
     runtime = _configured_runtime(settings_factory, environment)
     settings = deepcopy(runtime.settings)
@@ -917,10 +839,7 @@ async def test_restart_uses_durable_karma_chain_head(settings_factory):
         restarted.stop()
 
     assert result["execution"]["status"] == "COMPLETED"
-    assert environment.karma_parent_hashes == [
-        "karma-genesis",
-        "karma-head-1",
-    ]
+    assert environment.karma_parent_hashes == []
     bucket_calls = [
         call
         for call in environment.calls
@@ -935,7 +854,7 @@ async def test_restart_uses_durable_karma_chain_head(settings_factory):
 
 
 @pytest.mark.asyncio
-async def test_concurrent_executions_serialize_bucket_and_karma_heads(
+async def test_concurrent_executions_serialize_bucket_heads(
     settings_factory,
 ):
     environment = ContractEnvironment()
@@ -966,10 +885,7 @@ async def test_concurrent_executions_serialize_bucket_and_karma_heads(
 
     assert first["execution"]["status"] == "COMPLETED"
     assert second["execution"]["status"] == "COMPLETED"
-    assert environment.karma_parent_hashes == [
-        "karma-genesis",
-        "karma-head-1",
-    ]
+    assert environment.karma_parent_hashes == []
     bucket_calls = [
         call
         for call in environment.calls
@@ -1020,36 +936,14 @@ async def test_partially_configured_ecosystem_probes_available_owners_then_block
     assert preflight["response"]["status"] == "blocked"
     assert set(preflight["response"]["pending_modules"]) == {
         "raj",
-        "keshav",
-        "karma",
-        "prana",
         "insightflow",
     }
     checks = preflight["response"]["checks"]
-    assert [check["module"] for check in checks] == [
-        "bucket",
-        "ashmit",
-        "central_depository",
-    ]
-    assert [check["status"] for check in checks] == [
-        "accepted",
-        "failed",
-        "accepted",
-    ]
-    assert preflight["response"]["unhealthy_modules"] == ["ashmit"]
-    ashmit_check = next(
-        check for check in checks if check["module"] == "ashmit"
-    )
-    assert "Mongo-backed Bucket" in ashmit_check["semantic_validation"][
-        "error"
-    ]
+    assert [check["module"] for check in checks] == ["bucket"]
+    assert [check["status"] for check in checks] == ["accepted"]
+    assert preflight["response"]["unhealthy_modules"] == []
     assert environment.count("GET", "/health", host="bucket.test") == 1
-    assert environment.count("GET", "/health/system", host="ashmit.test") == 1
-    assert environment.count(
-        "GET",
-        "/bucket/latest-hash",
-        host="central.test",
-    ) == 1
+    assert environment.count("GET", "/health/system", host="ashmit.test") == 0
     assert preflight["response"]["embedded_fallback"] is False
     assert runtime.ecosystem_readiness()["embedded_fallback"] is False
 

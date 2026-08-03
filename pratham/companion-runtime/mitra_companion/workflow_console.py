@@ -232,42 +232,56 @@ def workflow_console_html() -> str:
 </main>
 <script>
 const stageDefinitions = [
+  ["user-request", "Natural request", "User"],
   ["capability-selection", "Capability selection", "Mitra"],
   ["dependency-preflight", "Dependency preflight", "Mitra"],
-  ["raj-execution", "Workflow execution", "Raj"],
-  ["keshav-diagnosis", "Conditional diagnosis", "TANTRA / KESHAV"],
-  ["ashmit-provenance", "Provenance acceptance", "TANTRA / Ashmit"],
-  ["bucket-truth", "Artifact storage", "TANTRA / Bucket"],
-  ["karma-integrity", "Integrity append", "TANTRA / Karma"],
-  ["prana-forwarding", "Strict forwarding", "TANTRA / PRANA"],
-  ["insightflow-telemetry", "Telemetry record", "TANTRA / InsightFlow"],
-  ["central-depository", "Handover package", "TANTRA / Central Depository"]
+  ["raj-execution", "Control-plane execution", "Raj"],
+  ["tantra-runtime", "Runtime handoff", "TANTRA"],
+  ["universal-capability-runtime", "Capability runtime", "Universal Runtime"],
+  ["capability-execution", "Product capability", "Capability"],
+  ["bucket-truth", "Artifact storage", "Bucket"],
+  ["replay-validation", "Deterministic replay", "Replay"],
+  ["insightflow-telemetry", "Telemetry record", "InsightFlow"],
+  ["mitra-response", "Companion response", "MITRA"]
 ];
 const workflowDomains = [
   {
+    id: "user",
+    title: "User",
+    purpose: "Submits the natural-language request",
+    handoff: "Hands request to MITRA Companion",
+    stages: ["user-request"]
+  },
+  {
     id: "mitra",
-    title: "MITRA Coordinator",
+    title: "MITRA Companion",
     purpose: "Natural request intake and manifest-driven capability selection",
     handoff: "Hands selected capability to Raj",
     stages: ["capability-selection", "dependency-preflight"]
   },
   {
     id: "raj",
-    title: "Raj Orchestrator",
-    purpose: "Executes the selected product workflow through its published contract",
+    title: "Raj Control Plane",
+    purpose: "Hands the selected execution contract to TANTRA",
     handoff: "Hands execution result to TANTRA",
     stages: ["raj-execution"]
   },
   {
     id: "tantra",
-    title: "TANTRA Execution Runtime",
-    purpose: "Owns the post-Raj constitutional and operational execution chain",
-    handoff: "KESHAV -> Ashmit -> Bucket -> Karma -> PRANA -> InsightFlow -> Depository",
+    title: "TANTRA Runtime",
+    purpose: "Runs the canonical capability execution path",
+    handoff: "Universal Runtime -> Capability -> Bucket -> Replay -> InsightFlow",
     stages: [
-      "keshav-diagnosis", "ashmit-provenance", "bucket-truth",
-      "karma-integrity", "prana-forwarding", "insightflow-telemetry",
-      "central-depository"
+      "tantra-runtime", "universal-capability-runtime", "capability-execution",
+      "bucket-truth", "replay-validation", "insightflow-telemetry"
     ]
+  },
+  {
+    id: "response",
+    title: "MITRA Response",
+    purpose: "Returns the verified capability result to the user",
+    handoff: "Closes the response-critical execution path",
+    stages: ["mitra-response"]
   }
 ];
 let currentExecution = null;
@@ -290,10 +304,40 @@ function safeStatus(value) {
     ? status : "waiting";
 }
 
+function displayStage(id) {
+  const persisted = currentExecution?.stages?.find(item => item.stage_name === id);
+  if (persisted) return persisted;
+  const execution = currentExecution?.execution;
+  if (id === "user-request" && execution) {
+    return {
+      stage_name: id,
+      status: "COMPLETED",
+      response: { accepted: true, request: execution.request },
+      finished_at: execution.created_at
+    };
+  }
+  if (id === "mitra-response" && execution) {
+    const complete = String(execution.status).toUpperCase() === "COMPLETED";
+    const failed = String(execution.status).toUpperCase() === "FAILED";
+    return {
+      stage_name: id,
+      status: complete ? "COMPLETED" : (failed ? "FAILED" : "WAITING"),
+      response: complete ? {
+        execution_id: execution.execution_id,
+        trace_id: execution.trace_id,
+        status: execution.status
+      } : null,
+      last_error: failed ? execution.error : null,
+      finished_at: complete ? execution.updated_at : null
+    };
+  }
+  return null;
+}
+
 function renderStages() {
   const stages = currentExecution?.stages || [];
   rail.innerHTML = stageDefinitions.map(([id, label, owner], index) => {
-    const stage = stages.find(item => item.stage_name === id);
+    const stage = displayStage(id);
     const status = safeStatus(stage?.status);
     return `<button class="stage ${status} ${selectedStage === id ? "selected" : ""}"
       data-stage="${id}">
@@ -333,7 +377,7 @@ function renderStages() {
 
 function renderInspector() {
   const definition = stageDefinitions.find(item => item[0] === selectedStage);
-  const stage = currentExecution?.stages?.find(item => item.stage_name === selectedStage);
+  const stage = displayStage(selectedStage);
   document.getElementById("inspector-title").textContent =
     definition ? `${definition[1]} response` : "Stage response";
   document.getElementById("stage-status").textContent =

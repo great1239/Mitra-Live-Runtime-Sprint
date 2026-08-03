@@ -20,40 +20,26 @@ or Central Depository acceptance.
 POST /api/v1/ecosystem/execute
   -> validate versioned request and active session boundary
   -> select one attached capability from its published manifest
-  -> preflight Raj, KESHAV, Bucket, Ashmit, PRANA, and depository contracts
+  -> preflight the Raj and Bucket owner contracts
   -> POST Raj /api/workflow/execute (request version 1.0.0)
-  -> accept only a trace-preserving success or typed product_error outcome
-  -> on success, record a KESHAV skipped checkpoint without calling /analyze
-  -> on product_error, POST KESHAV /analyze and validate its trace-preserving proposal
-  -> POST Ashmit /api/mitra/evaluate with the execution provenance
-  -> require an accepted decision and Mongo-backed artifact reference
-  -> Bucket latest hash, strict artifact append/read, global replay validation
-  -> POST Karma /integrity/append-bucket-artifact
-  -> continue only when Karma returns status=appended
-  -> POST PRANA /forward/karma-strict with the exact accepted Karma bytes
-  -> verify PRANA byte-equality and SHA-256 response headers
-  -> POST PRANA /forward/core and verify that trace_id was not mutated
-  -> POST the canonical execution envelope to InsightFlow
-  -> append the content-addressed handover to the configured external depository contract
-  -> seal and validate the portable deterministic replay package
+  -> persist the Raj-to-TANTRA execution receipt
+  -> persist the TANTRA-to-Universal-Runtime receipt
+  -> persist the capability execution receipt
+  -> append and read back the execution artifact through Bucket
+  -> reconstruct and verify the immutable execution prefix
+  -> POST verified replay telemetry to InsightFlow
+  -> return the capability response through MITRA
 ```
 
-The assignment diagram places PRANA before Karma. The supplied owner contract
-requires Karma acceptance before PRANA forwarding, so the executable order
-follows that published contract. A Karma replay or append violation suppresses
-all PRANA and downstream calls.
-
-KESHAV is conditional. It diagnoses a product-owned error and proposes a
-resolution signal; Mitra records and transports that proposal but does not
-authorize or execute it. Raj transport, schema, contract, or trace failures
-still fail closed before KESHAV because those are not valid product outcomes.
-The supplied KESHAV `/analyze` wrapper internally runs its bundled TANTRA
-pipeline, but exposes only the diagnosis response. Mitra therefore makes no
-independent claim about hidden RAJYA, Sarathi, Core, or internal Bucket results.
+KESHAV, Ashmit, Karma, PRANA, and Central Depository are retained as optional
+published-contract integrations. They are outside this canonical
+response-critical path and cannot insert stages into it.
 
 ## Required Configuration
 
-The canonical endpoint is fail-closed and has no embedded fallback.
+The canonical endpoint is fail-closed and has no embedded fallback. Raj,
+Bucket, and InsightFlow are response-critical; the remaining variables enable
+optional extension APIs.
 
 | Variable | Owner contract |
 | --- | --- |

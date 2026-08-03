@@ -22,7 +22,13 @@ from mitra_runtime.lifecycle import LifecycleManager
 from mitra_runtime.models import CapabilityDescriptor, ExecutionMode, RetryPolicy
 from mitra_runtime.registry import CapabilityRegistry
 
-from .common import canonical_bytes, require_api_key, sha256_bytes, utc_now
+from .common import (
+    canonical_bytes,
+    require_api_key,
+    runtime_secret,
+    sha256_bytes,
+    utc_now,
+)
 
 
 OWNER_REPOSITORY = (
@@ -138,7 +144,7 @@ def create_app(
         headers.update({str(key): str(value) for key, value in configured_headers.items()})
         token_environment = options.get("bearer_token_env")
         if token_environment:
-            token = os.environ.get(str(token_environment))
+            token = runtime_secret(str(token_environment))
             if not token:
                 raise ValueError(
                     f"required product secret is unavailable: {token_environment}"
@@ -148,7 +154,7 @@ def create_app(
         if not isinstance(secret_headers, dict):
             raise ValueError("dispatch secret_headers must be an object")
         for name, environment_name in secret_headers.items():
-            value = os.environ.get(str(environment_name))
+            value = runtime_secret(str(environment_name))
             if not value:
                 raise ValueError(
                     f"required product secret is unavailable: {environment_name}"

@@ -10,6 +10,14 @@ from integration_services.insightflow_bridge import create_app as create_insight
 from integration_services.karma import DEFAULT_GENESIS_HASH, create_app as create_karma
 from integration_services.prana import create_app as create_prana
 from integration_services.raj import create_app as create_raj
+from integration_services.common import runtime_secret
+
+
+def test_owner_runtime_accepts_legacy_product_secret_alias(monkeypatch) -> None:
+    monkeypatch.delenv("MITRA_PRODUCT_SETU_API_KEY", raising=False)
+    monkeypatch.setenv("SETU_API_KEY", "setu-owner-secret")
+
+    assert runtime_secret("MITRA_PRODUCT_SETU_API_KEY") == "setu-owner-secret"
 
 
 def test_karma_persists_chain_and_detects_replay(tmp_path) -> None:
