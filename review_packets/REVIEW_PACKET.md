@@ -8,10 +8,11 @@ the product. The prior post-product `tantra_runtime.py` was renamed
 `bhiv_downstream.py` because it actually transports results through KESHAV,
 Ashmit, Bucket, Karma, PRANA, InsightFlow, replay, and Central Depository.
 
-The local Universal Capability Runtime is a runnable compatibility
-implementation, not a claim that Kanishk's owner runtime has been integrated.
-Its published boundary can be replaced by the owner service without changing
-Mitra, Raj, TANTRA, or product manifests.
+The Universal Capability Runtime image now pins Kanishk's owner repository at
+commit `74a5efdd4d3c079d415903c4e151250bf4642f57` and runs its execution engine,
+registry, lifecycle, events, health monitor, and BucketStore. A narrow adapter
+registers one product-neutral remote-dispatch capability and preserves the
+owner's published execution route.
 
 Companion identity hooks now preserve explicit preferences, consent, device
 and client history, and continuity across sessions, workspaces, and products.

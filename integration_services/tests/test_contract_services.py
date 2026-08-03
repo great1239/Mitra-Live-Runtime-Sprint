@@ -499,10 +499,23 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
         return httpx.Response(
             200,
             json={
-                "status": "success",
-                "trace_id": "trace-in-chain",
-                "runtime": {"service": "universal-capability-runtime"},
-                "execution_result": {"success": True},
+                "execution_id": "ucr-exec-1",
+                "capability_id": "mitra-remote-product-v1",
+                "state": "completed",
+                "duration_seconds": 0.01,
+                "outputs": {
+                    "status": "success",
+                    "trace_id": "trace-in-chain",
+                    "runtime": {
+                        "service": "kanishk-universal-capability-runtime"
+                    },
+                    "execution_result": {"success": True},
+                },
+                "error": None,
+                "retry_count": 0,
+                "runtime": {
+                    "service": "kanishk-universal-capability-runtime"
+                },
             },
         )
 
@@ -544,12 +557,22 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
     assert response.status_code == 200, response.text
     body = response.json()
     assert observed["url"] == (
-        "https://runtime.test/api/v1/capabilities/execute"
+        "https://runtime.test/api/capabilities/"
+        "mitra-remote-product-v1/execute"
     )
-    assert observed["payload"]["trace_id"] == "trace-in-chain"
+    assert observed["payload"]["inputs"]["trace_id"] == "trace-in-chain"
+    assert observed["payload"]["metadata"] == {
+        "source": "raj",
+        "trace_id": "trace-in-chain",
+    }
     assert body["raj"]["orchestration_mode"] == "in-chain-tantra-runtime"
     assert body["tantra"]["transport"] == "in-process"
-    assert body["runtime"]["service"] == "universal-capability-runtime"
+    assert body["runtime"]["service"] == (
+        "kanishk-universal-capability-runtime"
+    )
+    assert body["canonical_runtime_execution"]["execution_id"] == (
+        "ucr-exec-1"
+    )
 
 
 def test_insightflow_bridge_registers_dataset_and_provenance(monkeypatch) -> None:

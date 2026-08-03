@@ -116,10 +116,12 @@ BHIV publication occurs only after the dispatch receipt and reconstruction are
 recorded. Convergence responses contain bounded depository references, not
 nested copies of the entire depository.
 
-The in-repository Universal Capability Runtime is a product-neutral
-compatibility runtime, not an owner-certified substitute for Kanishk's
-service. Its versioned HTTP contract allows the owner runtime to replace it
-without changing MITRA, Raj, TANTRA, or product manifests.
+The Universal Capability Runtime image is built from Kanishk's owner repository
+at pinned commit `74a5efdd4d3c079d415903c4e151250bf4642f57`. The adapter
+boots the owner execution engine, registry, lifecycle manager, event bus,
+health monitor, and `BucketStore`, then registers one product-neutral remote
+dispatch capability. Raj invokes the owner's published synchronous execution
+route. Product selection and schemas remain manifest-owned.
 
 ## Deployment Topology
 

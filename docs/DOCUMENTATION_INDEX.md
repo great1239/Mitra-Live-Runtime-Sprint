@@ -7,6 +7,7 @@ Runtime. Incoming engineers should follow the documents in the order below.
 
 | Need | Authoritative document |
 |---|---|
+| Understand current achievements, gaps, and completion roadmap | `docs/CURRENT_SYSTEM_STATUS_REPORT.md` |
 | Rebuild and hand over the runtime | `docs/HANDOVER.md` |
 | Understand architecture and ownership | `docs/ARCHITECTURE.md` |
 | Operate, recover, and roll back production | `docs/OPERATIONS_RUNBOOK.md` |

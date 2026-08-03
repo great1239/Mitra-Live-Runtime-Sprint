@@ -2,26 +2,26 @@
 
 ## File: `integration_services/raj.py`
 
-**Sprint change:** Added a manifest-driven Raj workflow executor and a typed
-product-error response boundary.
+**Sprint change:** Added a manifest-driven Raj workflow executor and later
+updated its execution boundary to Kanishk's published capability route.
 
-**Purpose:** Executes the selected published HTTP capability contract without
-product branches.
+**Purpose:** Hands the selected capability contract to Kanishk's runtime
+without product branches and preserves its execution receipt.
 
-**Why modified:** The original Raj host was unavailable while its published
-workflow contract remained required.
+**Why modified:** Raj must orchestrate the selected contract through the
+canonical capability runtime instead of dispatching products directly.
 
-**Key implementation areas:** API-key ingress, capability parsing, normalized
-published-origin override, payload projection, response-schema validation,
-and exact product rejection retention.
+**Key implementation areas:** API-key ingress, capability parsing, canonical
+runtime request envelope, owner state/output handling, trace validation, exact
+request hashing, and runtime execution metadata.
 
-**Review focus:** Raj must never invent an action or product response; a
-product rejection must not be confused with a Raj transport or contract error.
+**Review focus:** Raj must never invent an action or product response, bypass
+the runtime, or confuse an owner runtime failure with a product result.
 
 **Related tests:**
-`test_raj_dispatches_selected_manifest_without_product_branch` and
-`test_raj_endpoint_override_normalizes_manifest_trailing_slash`, and
-`test_raj_returns_typed_product_error_for_owner_rejection`.
+`test_raj_dispatches_selected_manifest_without_product_branch`,
+`test_raj_returns_typed_product_error_for_owner_rejection`, and
+`test_raj_embeds_tantra_boundary_and_calls_capability_runtime`.
 
 ## File: `integration_services/karma.py`
 

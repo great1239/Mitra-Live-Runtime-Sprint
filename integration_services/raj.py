@@ -175,6 +175,15 @@ def create_app(
                 "runtime_version": "1.0.0",
             }
             runtime_body = canonical_bytes(runtime_payload)
+            owner_runtime_body = canonical_bytes(
+                {
+                    "inputs": runtime_payload,
+                    "metadata": {
+                        "source": "raj",
+                        "trace_id": trace_id,
+                    },
+                }
+            )
             runtime_headers = {
                 "Content-Type": "application/json",
                 "X-Mitra-Trace-ID": trace_id,
@@ -193,9 +202,9 @@ def create_app(
                     response = await client.post(
                         urljoin(
                             runtime_url.rstrip("/") + "/",
-                            "api/v1/capabilities/execute",
+                            "api/capabilities/mitra-remote-product-v1/execute",
                         ),
-                        content=runtime_body,
+                        content=owner_runtime_body,
                         headers=runtime_headers,
                     )
             except httpx.HTTPError as exc:
@@ -215,7 +224,18 @@ def create_app(
                         "body": response.text[:1000],
                     },
                 )
-            result = response.json()
+            owner_result = response.json()
+            if owner_result.get("state") != "completed":
+                raise HTTPException(
+                    status_code=502,
+                    detail={
+                        "message": "capability runtime execution failed",
+                        "execution_id": owner_result.get("execution_id"),
+                        "state": owner_result.get("state"),
+                        "error": owner_result.get("error"),
+                    },
+                )
+            result = owner_result.get("outputs") or {}
             if result.get("trace_id") != trace_id:
                 raise HTTPException(
                     status_code=502,
@@ -223,6 +243,14 @@ def create_app(
                 )
             return {
                 **result,
+                "canonical_runtime_execution": {
+                    "execution_id": owner_result.get("execution_id"),
+                    "capability_id": owner_result.get("capability_id"),
+                    "state": owner_result.get("state"),
+                    "duration_seconds": owner_result.get("duration_seconds"),
+                    "retry_count": owner_result.get("retry_count"),
+                    "runtime": owner_result.get("runtime"),
+                },
                 "raj": {
                     "orchestration_mode": "in-chain-tantra-runtime",
                     "trace_id": trace_id,
@@ -231,7 +259,7 @@ def create_app(
                     "boundary_contract": "raj-to-tantra-execution.v1",
                     "transport": "in-process",
                     "trace_id": trace_id,
-                    "request_sha256": sha256_bytes(runtime_body),
+                    "request_sha256": sha256_bytes(owner_runtime_body),
                     "response_sha256": sha256_bytes(response.content),
                     "started_at": started_at,
                     "completed_at": utc_now(),

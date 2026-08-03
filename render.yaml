@@ -7,9 +7,9 @@ services:
     repo: https://github.com/great1239/Mitra-Live-Runtime-Sprint
     branch: main
     dockerContext: .
-    dockerfilePath: integration_services/Dockerfile
+    dockerfilePath: integration_services/kanishk-runtime.Dockerfile
     dockerCommand: >-
-      uvicorn integration_services.universal_capability_runtime:app
+      uvicorn integration_services.kanishk_runtime_adapter:app
       --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     autoDeployTrigger: commit
@@ -18,6 +18,8 @@ services:
         generateValue: true
       - key: CAPABILITY_ENDPOINT_OVERRIDES_JSON
         value: "{}"
+      - key: MITRA_DATA_DIR
+        value: /data/kanishk-runtime
       - key: MITRA_PRODUCT_UNIGURU_BEARER_TOKEN
         sync: false
       - key: MITRA_PRODUCT_UNIGURU_RAG_TOKEN
