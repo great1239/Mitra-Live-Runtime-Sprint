@@ -14,7 +14,7 @@ from .errors import ContextRevisionConflict, ResourceConflictError
 from .utils import sha256_json, utc_now
 
 
-_POSTGRES_SCHEMA_VERSION = 1
+_POSTGRES_SCHEMA_VERSION = 2
 _ECOSYSTEM_STAGE_LEASE_SECONDS = 330
 
 
