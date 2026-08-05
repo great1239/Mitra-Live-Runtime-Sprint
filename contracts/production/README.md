@@ -36,7 +36,7 @@ This directory currently includes three real BHIV product manifests:
 - `product-samruddhi-trade-bot.json`
   - repository: `https://github.com/harshapawar136/trade-bot-main`
   - base URL: `https://trade-bot-api.onrender.com`
-  - dispatch: `POST /tools/predict`, `POST /tools/analyze`
+  - dispatch: `POST /tools/fetch_data`, `POST /tools/analyze`
   - health: `GET /tools/health`
   - response contract: rejects HTTP 200 prediction/analyze payloads when any
     `predictions[]` item contains an `error` field.

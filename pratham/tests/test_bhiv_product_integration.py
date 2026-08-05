@@ -885,7 +885,7 @@ async def test_endpoint_override_rewrites_health_and_dispatch_urls():
         default_timeout_seconds=0.2,
         http_transport=httpx.MockTransport(handler),
         endpoint_overrides={
-            "https://mitra-uniguru-recovery.vercel.app": "http://uniguru:8000"
+            "https://pratham-uniguru-owner-runtime.onrender.com": "http://uniguru:8000"
         },
     )
 
@@ -906,7 +906,7 @@ async def test_endpoint_override_rewrites_health_and_dispatch_urls():
     assert health["endpoint"] == "http://uniguru:8000/health"
     assert (
         health["published_endpoint"]
-        == "https://mitra-uniguru-recovery.vercel.app/health"
+        == "https://pratham-uniguru-owner-runtime.onrender.com/health"
     )
     assert response["decision"] == "accept"
     assert requested == [

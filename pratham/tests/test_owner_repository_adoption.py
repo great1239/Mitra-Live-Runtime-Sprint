@@ -26,7 +26,7 @@ def test_render_blueprint_runs_product_owner_repositories_directly() -> None:
         assert f"repo: https://github.com/{repository}" in blueprint
 
 
-def test_cutover_targets_do_not_claim_activation_before_health_validation() -> None:
+def test_owner_targets_are_active_after_health_and_dispatch_validation() -> None:
     targets = {
         "product-samruddhi-uniguru.json": (
             "https://pratham-uniguru-owner-runtime.onrender.com"
@@ -38,8 +38,18 @@ def test_cutover_targets_do_not_claim_activation_before_health_validation() -> N
     for filename, target in targets.items():
         manifest = _manifest(filename)
         assert manifest["metadata"]["owner_runtime_target"] == target
-        assert manifest["metadata"]["recovery_runtime"] is True
-        assert manifest["base_url"] != target
+        assert manifest["metadata"]["recovery_runtime"] is False
+        assert manifest["base_url"] == target
+
+
+def test_stock_display_uses_owner_market_data_capability() -> None:
+    manifest = _manifest("product-samruddhi-trade-bot.json")
+    capability = manifest["capabilities"][0]
+    intent = capability["intents"][0]
+
+    assert capability["capability_id"] == "market-data"
+    assert intent["intent_id"] == "samruddhi.tradebot.fetch_data"
+    assert intent["dispatch"]["endpoint"] == "/tools/fetch_data"
 
 
 def test_active_setu_manifest_tracks_current_owner_repository_head() -> None:

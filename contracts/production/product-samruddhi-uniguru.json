@@ -4,7 +4,7 @@
   "product_version": "1.1.0",
   "contract_version": "1.0.0",
   "attachment_mode": "remote",
-  "base_url": "https://mitra-uniguru-recovery.vercel.app",
+  "base_url": "https://pratham-uniguru-owner-runtime.onrender.com",
   "health_endpoint": "/health",
   "capabilities": [
     {
@@ -136,10 +136,9 @@
     "source_repository": "https://github.com/VJY123VJY/uniguru_ai",
     "source_repository_head": "875f33dae7daef4e2a4e743ffbd73dc0a4c22bbe",
     "owner_runtime_target": "https://pratham-uniguru-owner-runtime.onrender.com",
-    "operational_deployment": "https://mitra-uniguru-recovery.vercel.app",
-    "operational_deployment_owner": "great1239/Mitra-Live-Runtime-Sprint",
-    "recovery_runtime": true,
-    "recovery_reason": "The owner deployment is unavailable and the owner repository is read-only to the current operator.",
+    "operational_deployment": "https://pratham-uniguru-owner-runtime.onrender.com",
+    "operational_deployment_owner": "VJY123VJY/uniguru_ai",
+    "recovery_runtime": false,
     "required_runtime_env": [
       "MITRA_PRODUCT_UNIGURU_BEARER_TOKEN",
       "MITRA_PRODUCT_UNIGURU_RAG_TOKEN"
@@ -164,7 +163,7 @@
       "apis": [
         {
           "name": "UniGuru public reasoning API",
-          "base_url": "https://mitra-uniguru-recovery.vercel.app",
+          "base_url": "https://pratham-uniguru-owner-runtime.onrender.com",
           "health": "GET /health",
           "dispatch": "POST /ask",
           "fallback_dispatch": "POST /new_rag",

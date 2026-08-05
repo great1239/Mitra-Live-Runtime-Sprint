@@ -4,24 +4,24 @@
   "product_version": "4.0.0",
   "contract_version": "1.0.0",
   "attachment_mode": "remote",
-  "base_url": "https://mitra-trade-bot-recovery.vercel.app",
+  "base_url": "https://pratham-samruddhi-owner-runtime.onrender.com",
   "health_endpoint": "/tools/health",
   "capabilities": [
     {
-      "capability_id": "market-prediction",
-      "description": "Generates stock prediction outputs through the published Samruddhi Trade Bot MCP API.",
+      "capability_id": "market-data",
+      "description": "Fetches live stock market values through the published Samruddhi Trade Bot MCP API.",
       "context_scopes": ["session", "workspace", "product"],
       "metadata": {
         "source_repository": "https://github.com/harshapawar136/trade-bot-main",
         "source_repository_head": "cfa68555c2c9ca42bba419791cb50dbe0c7295eb",
         "interface_file": "backend/api_server.py",
         "published_health_route": "GET /tools/health",
-        "published_dispatch_route": "POST /tools/predict"
+        "published_dispatch_route": "POST /tools/fetch_data"
       },
       "intents": [
         {
-          "intent_id": "samruddhi.tradebot.predict",
-          "description": "Generate predictions for one or more market symbols through the Trade Bot MCP API.",
+          "intent_id": "samruddhi.tradebot.fetch_data",
+          "description": "Fetch current market values for one or more stock symbols through the Trade Bot MCP API.",
           "input_schema": {
             "type": "object",
             "additionalProperties": false,
@@ -37,57 +37,26 @@
                   "maxLength": 20
                 }
               },
-              "horizon": {
+              "period": {
                 "type": "string",
-                "enum": ["intraday", "short", "long"]
+                "enum": ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"],
+                "default": "5d"
               },
-              "risk_profile": {
-                "type": "string",
-                "enum": ["low", "moderate", "high"]
-              },
-              "stop_loss_pct": {
-                "type": "number",
-                "minimum": 0.1,
-                "maximum": 50.0
-              },
-              "capital_risk_pct": {
-                "type": "number",
-                "minimum": 0.1,
-                "maximum": 100.0
-              },
-              "drawdown_limit_pct": {
-                "type": "number",
-                "minimum": 0.1,
-                "maximum": 100.0
-              }
+              "include_features": {"type": "boolean", "default": false},
+              "refresh": {"type": "boolean", "default": true}
             }
           },
           "response_schema": {
             "type": "object",
             "additionalProperties": true,
             "properties": {
-              "status": {"type": "string"},
-              "predictions": {"type": ["array", "object", "null"]},
-              "signals": {"type": ["array", "object", "null"]},
-              "metadata": {"type": ["object", "null"]},
-              "trace_id": {"type": "string"}
-            },
-            "not": {
-              "required": ["predictions"],
-              "properties": {
-                "predictions": {
-                  "type": "array",
-                  "contains": {
-                    "type": "object",
-                    "required": ["error"]
-                  }
-                }
-              }
+              "metadata": {"type": "object"},
+              "results": {"type": "array"}
             }
           },
           "dispatch": {
             "mode": "http",
-            "endpoint": "/tools/predict",
+            "endpoint": "/tools/fetch_data",
             "timeout_seconds": 60,
             "options": {
               "request_body": "payload"
@@ -200,11 +169,10 @@
     "integration_surface": "published-manifest",
     "source_repository": "https://github.com/harshapawar136/trade-bot-main",
     "source_repository_head": "cfa68555c2c9ca42bba419791cb50dbe0c7295eb",
-    "operational_deployment": "https://mitra-trade-bot-recovery.vercel.app",
+    "operational_deployment": "https://pratham-samruddhi-owner-runtime.onrender.com",
     "owner_runtime_target": "https://pratham-samruddhi-owner-runtime.onrender.com",
-    "operational_deployment_owner": "great1239/Mitra-Live-Runtime-Sprint",
-    "recovery_runtime": true,
-    "recovery_reason": "The owner Render service is suspended and the owner repository is not writable by the current operator.",
+    "operational_deployment_owner": "harshapawar136/trade-bot-main",
+    "recovery_runtime": false,
     "health_contract": {
       "required_format": "json",
       "expected_content_type": "application/json",
@@ -229,9 +197,9 @@
       "apis": [
         {
           "name": "Samruddhi Trade Bot MCP API",
-          "base_url": "https://mitra-trade-bot-recovery.vercel.app",
+          "base_url": "https://pratham-samruddhi-owner-runtime.onrender.com",
           "health": "GET /tools/health",
-          "predict": "POST /tools/predict",
+          "market_data": "POST /tools/fetch_data",
           "analyze": "POST /tools/analyze",
           "docs": "backend/api_server.py"
         }
