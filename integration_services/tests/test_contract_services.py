@@ -393,7 +393,7 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
             200,
             json={
                 "execution_id": "ucr-exec-1",
-                "capability_id": "mitra-remote-product-v1",
+                "capability_id": "market-prediction",
                 "state": "completed",
                 "duration_seconds": 0.01,
                 "outputs": {
@@ -451,7 +451,7 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
     body = response.json()
     assert observed["url"] == (
         "https://runtime.test/api/capabilities/"
-        "mitra-remote-product-v1/execute"
+        "market-prediction/execute"
     )
     assert observed["payload"]["inputs"]["trace_id"] == "trace-in-chain"
     assert observed["payload"]["metadata"] == {

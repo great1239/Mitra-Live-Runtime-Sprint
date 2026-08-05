@@ -27,6 +27,13 @@ adapter. KESHAV, Ashmit, Karma, PRANA, and Central Depository remain optional
 extension contracts; they do not alter or block the response-critical path. See
 `docs/TANTRA_ECOSYSTEM_CONVERGENCE.md` for configuration and recovery.
 
+Raj addresses UCR using the capability ID established by the selected product
+manifest. UCR attaches that descriptor through Kanishk's owner registry and
+executes it through the owner engine; the former generic
+`mitra-remote-product-v1` capability has been removed. See
+`docs/OWNER_CAPABILITY_ADOPTION.md` for the owner-code matrix and disclosed
+recovery-deployment exceptions.
+
 The canonical product definition, compliance posture, and production
 acceptance status are maintained in:
 

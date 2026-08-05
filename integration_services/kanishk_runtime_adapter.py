@@ -6,6 +6,7 @@ import json
 import os
 from dataclasses import asdict
 from pathlib import Path
+from threading import Lock
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -36,9 +37,6 @@ OWNER_REPOSITORY = (
     "Mitra-runtime_execution_fabric"
 )
 OWNER_COMMIT = "74a5efdd4d3c079d415903c4e151250bf4642f57"
-REMOTE_DISPATCH_CAPABILITY = "mitra-remote-product-v1"
-
-
 class ExecuteRequest(BaseModel):
     inputs: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
@@ -97,6 +95,89 @@ def create_app(
     app.state.health = health
     app.state.bucket = bucket
     app.state.transport = transport
+    capability_attachment_lock = Lock()
+
+    def attach_owner_capability(
+        capability_id: str,
+        payload: ExecuteRequest,
+    ) -> None:
+        """Attach a manifest-defined capability to Kanishk's owner registry."""
+        inputs = payload.inputs or {}
+        contract = inputs.get("capability_contract")
+        if not isinstance(contract, dict):
+            raise HTTPException(
+                status_code=422,
+                detail="capability_contract is required for capability attachment",
+            )
+        capability = contract.get("capability") or {}
+        manifest_capability_id = capability.get("capability_id")
+        if manifest_capability_id != capability_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "URL capability_id must match the established manifest "
+                    "capability_id"
+                ),
+            )
+        description = capability.get("description")
+        if not isinstance(description, str) or not description.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="manifest capability description is required",
+            )
+        product = contract.get("product") or {}
+        product_version = product.get("product_version")
+        ownership = {
+            "product_id": product.get("product_id"),
+            "source_repository": (capability.get("metadata") or {}).get(
+                "source_repository"
+            ),
+        }
+        with capability_attachment_lock:
+            existing = registry.get(capability_id)
+            if existing:
+                existing_ownership = {
+                    "product_id": existing.metadata.get("product_id"),
+                    "source_repository": existing.metadata.get(
+                        "source_repository"
+                    ),
+                }
+                if existing_ownership != ownership:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "capability_id is already attached to a different "
+                            "owner capability"
+                        ),
+                    )
+                if engine.has_handler(capability_id):
+                    return
+            registry.register(
+                CapabilityDescriptor(
+                    capability_id=capability_id,
+                    name=description.strip(),
+                    version=(
+                        str(product_version)
+                        if product_version
+                        else "manifest-defined"
+                    ),
+                    description=description.strip(),
+                    execution_mode=ExecutionMode.SYNC,
+                    timeout_seconds=180.0,
+                    retry_policy=RetryPolicy(max_retries=0),
+                    metadata={
+                        "attachment_source": "mitra-product-manifest",
+                        "product_id": ownership["product_id"],
+                        "intent_id": (contract.get("intent") or {}).get(
+                            "intent_id"
+                        ),
+                        "source_repository": ownership[
+                            "source_repository"
+                        ],
+                    },
+                )
+            )
+            engine.register_handler(capability_id, remote_product_handler)
 
     def remote_product_handler(ctx: ExecutionContext) -> dict[str, Any]:
         payload = dict(ctx.inputs or {})
@@ -273,22 +354,6 @@ def create_app(
             product_response=product_response,
         )
 
-    registry.register(
-        CapabilityDescriptor(
-            capability_id=REMOTE_DISPATCH_CAPABILITY,
-            name="MITRA Remote Product Dispatch",
-            version="1.0.0",
-            description=(
-                "Executes a selected MITRA product capability from its "
-                "published manifest contract."
-            ),
-            execution_mode=ExecutionMode.SYNC,
-            timeout_seconds=180.0,
-            retry_policy=RetryPolicy(max_retries=0),
-        )
-    )
-    engine.register_handler(REMOTE_DISPATCH_CAPABILITY, remote_product_handler)
-
     @app.on_event("startup")
     def startup() -> None:
         engine.start_queue_workers()
@@ -308,7 +373,7 @@ def create_app(
             "canonical_owner_runtime": True,
             "owner_repository": OWNER_REPOSITORY,
             "owner_commit": OWNER_COMMIT,
-            "integration_capability": REMOTE_DISPATCH_CAPABILITY,
+            "capability_attachment": "manifest-defined-owner-registry",
         }
 
     @app.get("/api/capabilities")
@@ -322,8 +387,7 @@ def create_app(
         capability_id: str, payload: ExecuteRequest, request: Request
     ) -> dict[str, Any]:
         require_api_key(request, "CAPABILITY_RUNTIME_API_KEY")
-        if not engine.has_handler(capability_id):
-            raise HTTPException(status_code=404, detail="capability not registered")
+        attach_owner_capability(capability_id, payload)
         result = engine.execute(
             capability_id=capability_id,
             inputs=payload.inputs or {},

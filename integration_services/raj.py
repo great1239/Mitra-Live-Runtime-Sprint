@@ -185,6 +185,19 @@ def create_app(
                     },
                 }
             )
+            selected_capability = (
+                (contract.get("capability") or {}).get(
+                    "capability_id"
+                )
+            )
+            if not isinstance(selected_capability, str) or not selected_capability:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        "capability_contract.capability.capability_id is "
+                        "required; Raj will not invent a UCR capability"
+                    ),
+                )
             runtime_headers = {
                 "Content-Type": "application/json",
                 "X-Mitra-Trace-ID": trace_id,
@@ -212,7 +225,10 @@ def create_app(
                         response = await client.post(
                             urljoin(
                                 runtime_url.rstrip("/") + "/",
-                                "api/capabilities/mitra-remote-product-v1/execute",
+                                (
+                                    "api/capabilities/"
+                                    f"{selected_capability}/execute"
+                                ),
                             ),
                             content=owner_runtime_body,
                             headers=runtime_headers,

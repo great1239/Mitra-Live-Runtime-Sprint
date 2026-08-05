@@ -46,6 +46,7 @@ critical code entry points.
 27. [Portable deployment validation](27-portable-deployment-validation.md)
 28. [Public runtime portability](28-public-runtime-portability.md)
 29. [Runtime ownership and companion continuity](33-runtime-ownership-and-continuity.md)
+30. [Owner capability adoption](35-owner-capability-adoption.md)
 
 ## Reviewer Path
 
