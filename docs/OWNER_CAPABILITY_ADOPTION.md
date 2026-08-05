@@ -30,8 +30,8 @@ transport or schema shape, but it must not replace owner business behavior.
 | Bucket | Accessible BHIV Bucket deployment and its append-only APIs | MITRA artifact envelope | Owner capability active |
 | SETU | Product-owned `/api/mitra/execute` route from `blackholeinfiverse51/ai-crm`; public health confirms MongoDB and MITRA integration | Manifest envelope mapping | Owner capability active |
 | UniGuru | Owner Dockerfile and `/ask`, `/new_rag`, and `/health` implementation from `VJY123VJY/uniguru_ai` | Blueprint service consumes the owner repository directly | Owner cutover prepared; Render activation pending |
-| Samruddhi Trade Bot | Owner `backend/Dockerfile` and `/tools/predict`, `/tools/analyze`, and `/tools/health` implementation | Blueprint service consumes the private owner repository directly | Owner cutover prepared; Render activation pending |
-| SL Validator | Owner `/validate` deterministic decision-validation API from `BHIV-Engineering-Exchange/sl_validator_parity` | Blueprint hosting only | Owner deployment prepared; not misrepresented as artifact storage |
+| Samruddhi Trade Bot | Owner `backend/Dockerfile` and `/tools/predict`, `/tools/analyze`, and `/tools/health` implementation | Blueprint consumes a private, unchanged deployment mirror because Render's `great1239` installation cannot read the private owner repository | Owner cutover prepared; Render activation pending |
+| SL Validator | Owner `/validate` deterministic decision-validation API from `BHIV-Engineering-Exchange/sl_validator_parity` | Blueprint consumes a private, unchanged deployment mirror | Owner deployment prepared; not misrepresented as artifact storage |
 | KESHAV | Public owner API and published integration guide | Conditional error envelope | Owner endpoint active |
 | Karma / PRANA | Only published API contracts were supplied | Contract-compatible services implement those exact APIs | Owner repositories unavailable |
 

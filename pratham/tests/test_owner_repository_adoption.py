@@ -14,9 +14,11 @@ def test_render_blueprint_runs_product_owner_repositories_directly() -> None:
 
     expected_owner_services = {
         "pratham-uniguru-owner-runtime": "VJY123VJY/uniguru_ai",
-        "pratham-samruddhi-owner-runtime": "harshapawar136/trade-bot-main",
+        "pratham-samruddhi-owner-runtime": (
+            "great1239/mitra-owner-samruddhi-runtime"
+        ),
         "pratham-sl-validator-owner-runtime": (
-            "BHIV-Engineering-Exchange/sl_validator_parity"
+            "great1239/mitra-owner-sl-validator"
         ),
     }
     for service, repository in expected_owner_services.items():

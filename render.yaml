@@ -29,7 +29,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    repo: https://github.com/harshapawar136/trade-bot-main
+    repo: https://github.com/great1239/mitra-owner-samruddhi-runtime
     branch: main
     dockerContext: backend
     dockerfilePath: backend/Dockerfile
@@ -41,7 +41,7 @@ services:
     runtime: python
     plan: free
     region: oregon
-    repo: https://github.com/BHIV-Engineering-Exchange/sl_validator_parity
+    repo: https://github.com/great1239/mitra-owner-sl-validator
     branch: main
     rootDir: python
     buildCommand: pip install fastapi uvicorn pydantic
