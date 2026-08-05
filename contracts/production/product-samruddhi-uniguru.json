@@ -13,7 +13,7 @@
       "context_scopes": ["session", "workspace", "product"],
       "metadata": {
         "source_repository": "https://github.com/VJY123VJY/uniguru_ai",
-        "source_repository_head": "a0740f552b33b19e1507014d63a4af6ecb61460a",
+        "source_repository_head": "875f33dae7daef4e2a4e743ffbd73dc0a4c22bbe",
         "interface_file": "backend/service/api.py",
         "published_health_route": "GET /health",
         "published_dispatch_route": "POST /ask"
@@ -134,7 +134,8 @@
     "integration_direction": "backward",
     "integration_surface": "published-manifest",
     "source_repository": "https://github.com/VJY123VJY/uniguru_ai",
-    "source_repository_head": "a0740f552b33b19e1507014d63a4af6ecb61460a",
+    "source_repository_head": "875f33dae7daef4e2a4e743ffbd73dc0a4c22bbe",
+    "owner_runtime_target": "https://pratham-uniguru-owner-runtime.onrender.com",
     "operational_deployment": "https://mitra-uniguru-recovery.vercel.app",
     "operational_deployment_owner": "great1239/Mitra-Live-Runtime-Sprint",
     "recovery_runtime": true,

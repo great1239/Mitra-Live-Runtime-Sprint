@@ -26,11 +26,12 @@ transport or schema shape, but it must not replace owner business behavior.
 | --- | --- | --- | --- |
 | Kanishk UCR | Pinned `Mitra-runtime_execution_fabric` engine, registry, lifecycle, events, health, and BucketStore | API-key boundary and manifest capability attachment | Owner code active |
 | InsightFlow | Pinned `VJY123VJY/bhiv` application and migrations | Contract bridge translates MITRA telemetry into owner dataset/provenance APIs | Owner code active |
-| Ashmit | Public deployment built from the accessible Ashmit repository/fork | MITRA contract client and trace validation | Owner deployment acceptance pending |
+| Ashmit | Healthy public deployment built from `blackholeinfiverse54-creator/Mitra_T42`; MongoDB-backed Bucket and execution modules are active | MITRA contract client and trace validation | Owner code active; owner signoff pending |
 | Bucket | Accessible BHIV Bucket deployment and its append-only APIs | MITRA artifact envelope | Owner capability active |
-| SETU | Product-owned `/api/mitra/execute` route | Manifest envelope mapping | Owner capability active |
-| UniGuru | Product-owned `/ask` and `/new_rag` contracts are declared | Current public target is a labelled recovery deployment | Owner production deployment pending |
-| Samruddhi Trade Bot | Product-owned `/tools/predict` and `/tools/analyze` contracts are declared | Current public target is a labelled recovery deployment | Owner production deployment pending |
+| SETU | Product-owned `/api/mitra/execute` route from `blackholeinfiverse51/ai-crm`; public health confirms MongoDB and MITRA integration | Manifest envelope mapping | Owner capability active |
+| UniGuru | Owner Dockerfile and `/ask`, `/new_rag`, and `/health` implementation from `VJY123VJY/uniguru_ai` | Blueprint service consumes the owner repository directly | Owner cutover prepared; Render activation pending |
+| Samruddhi Trade Bot | Owner `backend/Dockerfile` and `/tools/predict`, `/tools/analyze`, and `/tools/health` implementation | Blueprint service consumes the private owner repository directly | Owner cutover prepared; Render activation pending |
+| SL Validator | Owner `/validate` deterministic decision-validation API from `BHIV-Engineering-Exchange/sl_validator_parity` | Blueprint hosting only | Owner deployment prepared; not misrepresented as artifact storage |
 | KESHAV | Public owner API and published integration guide | Conditional error envelope | Owner endpoint active |
 | Karma / PRANA | Only published API contracts were supplied | Contract-compatible services implement those exact APIs | Owner repositories unavailable |
 
@@ -49,3 +50,15 @@ not owner-operated production services. They must be replaced with healthy
 owner-code deployments before final owner certification; until then MITRA must
 continue to disclose the recovery status rather than treating them as canonical
 owner runtimes.
+
+`render.yaml` defines direct owner-repository services for both products. The
+production manifest includes each intended owner runtime as
+`owner_runtime_target`, but `base_url` remains on the recovery endpoint until
+the new Render service passes its semantic health and dispatch checks. This
+prevents a configuration-only change from breaking live traffic.
+
+The accessible `sl_validator_parity` repository is a deterministic constraint
+validator, not a Central Depository storage service. MITRA therefore deploys
+its real `/validate` capability separately and does not substitute it for the
+Central Depository artifact contract. The Central Depository remains an export
+and handover boundary until its storage owner supplies a matching API.

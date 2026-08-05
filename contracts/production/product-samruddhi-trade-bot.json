@@ -201,6 +201,7 @@
     "source_repository": "https://github.com/harshapawar136/trade-bot-main",
     "source_repository_head": "cfa68555c2c9ca42bba419791cb50dbe0c7295eb",
     "operational_deployment": "https://mitra-trade-bot-recovery.vercel.app",
+    "owner_runtime_target": "https://pratham-samruddhi-owner-runtime.onrender.com",
     "operational_deployment_owner": "great1239/Mitra-Live-Runtime-Sprint",
     "recovery_runtime": true,
     "recovery_reason": "The owner Render service is suspended and the owner repository is not writable by the current operator.",

@@ -1,4 +1,54 @@
 services:
+  # Product services run directly from their owner repositories. MITRA only
+  # consumes their published contracts; no product logic is copied here.
+  - type: web
+    name: pratham-uniguru-owner-runtime
+    runtime: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/VJY123VJY/uniguru_ai
+    branch: main
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: PYTHONPATH
+        value: /app/backend
+      - key: UNIGURU_HOST
+        value: 0.0.0.0
+      - key: UNIGURU_PORT
+        value: "8000"
+      - key: UNIGURU_API_AUTH_REQUIRED
+        value: "false"
+      - key: UNIGURU_OLLAMA_ENABLED
+        value: "false"
+
+  - type: web
+    name: pratham-samruddhi-owner-runtime
+    runtime: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/harshapawar136/trade-bot-main
+    branch: main
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
+    healthCheckPath: /tools/health
+    autoDeployTrigger: commit
+
+  - type: web
+    name: pratham-sl-validator-owner-runtime
+    runtime: python
+    plan: free
+    region: oregon
+    repo: https://github.com/BHIV-Engineering-Exchange/sl_validator_parity
+    branch: main
+    rootDir: python
+    buildCommand: pip install fastapi uvicorn pydantic
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+
   - type: web
     name: pratham-universal-capability-runtime
     runtime: docker
