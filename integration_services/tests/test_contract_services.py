@@ -381,9 +381,15 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
         "RAJ_CAPABILITY_RUNTIME_URL",
         "https://runtime.test",
     )
+    monkeypatch.setenv(
+        "RAJ_CAPABILITY_RUNTIME_INITIAL_BACKOFF_SECONDS",
+        "0",
+    )
     observed: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/health":
+            return httpx.Response(200, json={"status": "healthy"})
         observed["calls"] = observed.get("calls", 0) + 1
         observed["url"] = str(request.url)
         observed["payload"] = json.loads(request.content)
@@ -473,6 +479,10 @@ def test_raj_embeds_tantra_boundary_and_calls_capability_runtime(
             "transport_attempts"
         ]
     ] == [503, 200]
+    readiness = body["canonical_runtime_execution"]["readiness_checks"]
+    assert len(readiness) == 1
+    assert readiness[0]["after_attempt"] == 1
+    assert readiness[0]["http_status"] == 200
 
 
 def test_insightflow_bridge_registers_dataset_and_provenance(monkeypatch) -> None:

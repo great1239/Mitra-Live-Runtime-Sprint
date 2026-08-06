@@ -108,7 +108,11 @@ services:
       - key: RAJ_CAPABILITY_RUNTIME_TIMEOUT
         value: "150"
       - key: RAJ_CAPABILITY_RUNTIME_ATTEMPTS
-        value: "3"
+        value: "6"
+      - key: RAJ_CAPABILITY_RUNTIME_INITIAL_BACKOFF_SECONDS
+        value: "5"
+      - key: RAJ_CAPABILITY_RUNTIME_MAX_BACKOFF_SECONDS
+        value: "20"
 
   - type: web
     name: pratham-mitra-karma-integrity

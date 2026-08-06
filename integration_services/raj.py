@@ -210,8 +210,27 @@ def create_app(
                 1,
                 int(os.environ.get("RAJ_CAPABILITY_RUNTIME_ATTEMPTS", "3")),
             )
+            initial_backoff = max(
+                0.0,
+                float(
+                    os.environ.get(
+                        "RAJ_CAPABILITY_RUNTIME_INITIAL_BACKOFF_SECONDS",
+                        "2",
+                    )
+                ),
+            )
+            max_backoff = max(
+                initial_backoff,
+                float(
+                    os.environ.get(
+                        "RAJ_CAPABILITY_RUNTIME_MAX_BACKOFF_SECONDS",
+                        "20",
+                    )
+                ),
+            )
             retry_statuses = {502, 503, 504}
             attempts: list[dict[str, Any]] = []
+            readiness_checks: list[dict[str, Any]] = []
             response: httpx.Response | None = None
             async with httpx.AsyncClient(
                 transport=app.state.transport,
@@ -249,6 +268,7 @@ def create_app(
                                 detail={
                                     "message": "capability runtime transport failed",
                                     "attempts": attempts,
+                                    "readiness_checks": readiness_checks,
                                 },
                             ) from exc
                     else:
@@ -266,7 +286,38 @@ def create_app(
                             or attempt >= max_attempts
                         ):
                             break
-                    await asyncio.sleep(min(2 ** (attempt - 1), 4))
+                    readiness_started = utc_now()
+                    try:
+                        readiness = await client.get(
+                            urljoin(runtime_url.rstrip("/") + "/", "health"),
+                            headers={"X-Mitra-Trace-ID": trace_id},
+                        )
+                    except httpx.HTTPError as exc:
+                        readiness_checks.append(
+                            {
+                                "after_attempt": attempt,
+                                "started_at": readiness_started,
+                                "completed_at": utc_now(),
+                                "http_status": None,
+                                "error": type(exc).__name__,
+                            }
+                        )
+                    else:
+                        readiness_checks.append(
+                            {
+                                "after_attempt": attempt,
+                                "started_at": readiness_started,
+                                "completed_at": utc_now(),
+                                "http_status": readiness.status_code,
+                                "error": None,
+                            }
+                        )
+                    delay = min(
+                        initial_backoff * (2 ** (attempt - 1)),
+                        max_backoff,
+                    )
+                    if delay:
+                        await asyncio.sleep(delay)
             if response is None:
                 raise HTTPException(
                     status_code=502,
@@ -283,6 +334,7 @@ def create_app(
                         "http_status": response.status_code,
                         "body": response.text[:1000],
                         "attempts": attempts,
+                        "readiness_checks": readiness_checks,
                     },
                 )
             owner_result = response.json()
@@ -312,6 +364,7 @@ def create_app(
                     "retry_count": owner_result.get("retry_count"),
                     "runtime": owner_result.get("runtime"),
                     "transport_attempts": attempts,
+                    "readiness_checks": readiness_checks,
                 },
                 "raj": {
                     "orchestration_mode": "in-chain-tantra-runtime",
